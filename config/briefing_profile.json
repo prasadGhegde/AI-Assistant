@@ -1,0 +1,45 @@
+{
+  "target_total_words": [1000, 1100],
+  "target_runtime_minutes": 8,
+  "sections": [
+    {
+      "id": "intro",
+      "label": "Intro",
+      "target_seconds": 45,
+      "target_words": [95, 120]
+    },
+    {
+      "id": "geopolitics",
+      "label": "Geopolitics",
+      "target_seconds": 120,
+      "target_words": [245, 290],
+      "required_close": "Why it matters today"
+    },
+    {
+      "id": "technology_ai",
+      "label": "Technology and AI",
+      "target_seconds": 120,
+      "target_words": [245, 290],
+      "required_close": "Why it matters today"
+    },
+    {
+      "id": "markets",
+      "label": "Stock market",
+      "target_seconds": 120,
+      "target_words": [245, 290],
+      "required_close": "Why it matters today"
+    },
+    {
+      "id": "watchlist",
+      "label": "Watch list for today",
+      "target_seconds": 60,
+      "target_words": [120, 160],
+      "required_close": "Why it matters today"
+    }
+  ],
+  "style": {
+    "voice": "conversational, concise, work-morning focused",
+    "avoid": ["bullet lists in spoken sections", "repeating the same story across categories", "stale stories unless context is essential"],
+    "date_policy": "Use exact dates when relevant and prefer events published in the last 24 hours."
+  }
+}

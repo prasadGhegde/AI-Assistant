@@ -1,0 +1,17 @@
+{
+  "audio_path": "/Users/prasadhegde/Documents/MorningBriefs/output/audio/briefing_2026-04-12_150953.mp3",
+  "dashboard_path": "/Users/prasadhegde/Documents/MorningBriefs/output/dashboard/briefing_2026-04-12_150953.html",
+  "generated_at": "2026-04-12T15:09:53.927956+02:00",
+  "latest_audio_path": "/Users/prasadhegde/Documents/MorningBriefs/output/audio/latest.mp3",
+  "latest_dashboard_path": "/Users/prasadhegde/Documents/MorningBriefs/output/dashboard/latest.html",
+  "latest_notes_path": "/Users/prasadhegde/Documents/MorningBriefs/data/processed/latest_notes.json",
+  "latest_raw_path": "/Users/prasadhegde/Documents/MorningBriefs/data/raw/latest_sources.json",
+  "latest_script_path": "/Users/prasadhegde/Documents/MorningBriefs/output/scripts/latest.md",
+  "notes_path": "/Users/prasadhegde/Documents/MorningBriefs/data/processed/notes_2026-04-12_150953.json",
+  "raw_path": "/Users/prasadhegde/Documents/MorningBriefs/data/raw/sources_2026-04-12_150953.json",
+  "script_path": "/Users/prasadhegde/Documents/MorningBriefs/output/scripts/briefing_2026-04-12_150953.md",
+  "warnings": [
+    "Failed to collect The Verge AI: 404 Client Error: Not Found for url: https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",
+    "Script word count is 700; target is 1000 to 1100 words."
+  ]
+}

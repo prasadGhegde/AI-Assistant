@@ -1,0 +1,2 @@
+[console_scripts]
+morning-briefs = morning_briefs.cli:main

@@ -1,0 +1,92 @@
+{
+  "geopolitics": [
+    {
+      "name": "BBC World",
+      "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+      "kind": "rss",
+      "source_weight": 1.0,
+      "tags": ["world", "diplomacy", "security"]
+    },
+    {
+      "name": "Associated Press World",
+      "url": "https://apnews.com/hub/world-news?output=1",
+      "kind": "rss",
+      "source_weight": 1.0,
+      "tags": ["world", "breaking", "diplomacy"]
+    },
+    {
+      "name": "Al Jazeera",
+      "url": "https://www.aljazeera.com/xml/rss/all.xml",
+      "kind": "rss",
+      "source_weight": 0.88,
+      "tags": ["middle-east", "conflict", "global-south"]
+    },
+    {
+      "name": "NPR World",
+      "url": "https://feeds.npr.org/1004/rss.xml",
+      "kind": "rss",
+      "source_weight": 0.82,
+      "tags": ["world", "analysis"]
+    }
+  ],
+  "technology_ai": [
+    {
+      "name": "TechCrunch AI",
+      "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+      "kind": "rss",
+      "source_weight": 0.94,
+      "tags": ["ai", "startups", "funding"]
+    },
+    {
+      "name": "The Verge AI",
+      "url": "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",
+      "kind": "rss",
+      "source_weight": 0.9,
+      "tags": ["ai", "platforms", "consumer-tech"]
+    },
+    {
+      "name": "MIT Technology Review",
+      "url": "https://www.technologyreview.com/feed/",
+      "kind": "rss",
+      "source_weight": 0.9,
+      "tags": ["research", "ai", "policy"]
+    },
+    {
+      "name": "OpenAI News",
+      "url": "https://openai.com/news/rss.xml",
+      "kind": "rss",
+      "source_weight": 0.84,
+      "tags": ["ai", "openai", "models"]
+    }
+  ],
+  "markets": [
+    {
+      "name": "CNBC Markets",
+      "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+      "kind": "rss",
+      "source_weight": 0.96,
+      "tags": ["stocks", "markets", "macro"]
+    },
+    {
+      "name": "MarketWatch MarketPulse",
+      "url": "https://feeds.content.dowjones.io/public/rss/mw_marketpulse",
+      "kind": "rss",
+      "source_weight": 0.9,
+      "tags": ["stocks", "market-pulse"]
+    },
+    {
+      "name": "Yahoo Finance",
+      "url": "https://finance.yahoo.com/news/rssindex",
+      "kind": "rss",
+      "source_weight": 0.82,
+      "tags": ["stocks", "earnings", "movers"]
+    },
+    {
+      "name": "Federal Reserve Press Releases",
+      "url": "https://www.federalreserve.gov/feeds/press_all.xml",
+      "kind": "rss",
+      "source_weight": 0.75,
+      "tags": ["rates", "macro", "policy"]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "geopolitics": {
+    "display_name": "Geopolitics",
+    "purpose": "Surface consequential diplomacy, conflict, energy security, elections, sanctions, and supply-chain risk.",
+    "subskills": [
+      "regional_security",
+      "diplomacy_sanctions",
+      "energy_trade_routes"
+    ]
+  },
+  "technology_ai": {
+    "display_name": "Technology and AI",
+    "purpose": "Surface model releases, regulation, compute infrastructure, chips, cybersecurity, and platform shifts.",
+    "subskills": [
+      "frontier_ai",
+      "chips_compute",
+      "cyber_policy"
+    ]
+  },
+  "markets": {
+    "display_name": "Stock market",
+    "purpose": "Surface index direction, macro/rates catalysts, earnings, sector rotation, and notable movers.",
+    "subskills": [
+      "macro_rates",
+      "earnings_movers",
+      "sector_rotation"
+    ]
+  }
+}

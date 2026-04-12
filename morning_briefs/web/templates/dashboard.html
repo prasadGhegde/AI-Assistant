@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Morning Brief</title>
+    <link rel="stylesheet" href="assets/dashboard.css">
+  </head>
+  <body>
+    <script>
+      window.MORNING_BRIEF = __BRIEFING_DATA__;
+    </script>
+    <main class="shell">
+      <header class="topline">
+        <div>
+          <p class="eyebrow">Morning Brief</p>
+          <h1>Workday signal board</h1>
+        </div>
+        <div class="stamp">
+          <span>Generated</span>
+          <strong>__GENERATED_AT__</strong>
+        </div>
+      </header>
+
+      <section class="matter-band">
+        <p class="eyebrow">What matters today</p>
+        <h2 id="matterLine"></h2>
+      </section>
+
+      <section class="dashboard-grid">
+        <section class="panel globe-panel" aria-labelledby="geoTitle">
+          <div class="panel-head">
+            <p class="eyebrow">Geopolitics</p>
+            <h2 id="geoTitle">Hotspot panel</h2>
+          </div>
+          <div class="globe" aria-hidden="true">
+            <div class="longitude"></div>
+            <div class="latitude latitude-one"></div>
+            <div class="latitude latitude-two"></div>
+            <div id="hotspots"></div>
+          </div>
+          <div id="geoList" class="signal-list"></div>
+        </section>
+
+        <section class="panel radar-panel" aria-labelledby="techTitle">
+          <div class="panel-head">
+            <p class="eyebrow">Technology and AI</p>
+            <h2 id="techTitle">Trend radar</h2>
+          </div>
+          <div class="radar" aria-hidden="true">
+            <div class="sweep"></div>
+            <div id="radarPips"></div>
+          </div>
+          <div id="techList" class="signal-list"></div>
+        </section>
+
+        <section class="panel market-panel" aria-labelledby="marketTitle">
+          <div class="panel-head">
+            <p class="eyebrow">Stock market</p>
+            <h2 id="marketTitle">Heat map</h2>
+          </div>
+          <div id="heatMap" class="heat-map"></div>
+          <div class="movers">
+            <h3>Movers board</h3>
+            <div id="moversBoard"></div>
+          </div>
+        </section>
+
+        <aside class="script-panel" aria-labelledby="scriptTitle">
+          <div class="panel-head">
+            <p class="eyebrow">Narration</p>
+            <h2 id="scriptTitle">Final script</h2>
+          </div>
+          <div class="audio-row">
+            <button id="playButton" type="button">Play briefing</button>
+            <audio id="briefAudio" controls autoplay src="__AUDIO_SRC__"></audio>
+          </div>
+          <div class="script-meta">
+            <span id="wordCount"></span>
+            <span id="modelUsed"></span>
+          </div>
+          <article id="scriptText" class="script-text"></article>
+        </aside>
+      </section>
+
+      <section class="watch-band" aria-labelledby="watchTitle">
+        <p class="eyebrow">Watch list</p>
+        <h2 id="watchTitle">Threads to revisit</h2>
+        <div id="watchList" class="watch-list"></div>
+      </section>
+
+      <section id="warnings" class="warnings" aria-live="polite"></section>
+    </main>
+    <script src="assets/dashboard.js"></script>
+  </body>
+</html>
