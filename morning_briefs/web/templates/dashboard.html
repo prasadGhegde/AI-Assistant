@@ -26,9 +26,11 @@
           <div class="audio-status">
             <span id="audioStatus">Preparing audio route</span>
             <span id="musicStatus">Music armed</span>
+            <div class="progress-shell top-progress" aria-label="Briefing progress"><div id="progressBar" class="progress-bar"></div></div>
           </div>
           <audio id="briefAudio" preload="auto" playsinline src="__AUDIO_SRC__"></audio>
           <audio id="musicAudio" preload="auto" loop></audio>
+          <audio id="closingAudio" preload="auto" playsinline></audio>
         </div>
       </header>
 
@@ -74,39 +76,37 @@
               <span class="weather-location" id="weatherLocation">—</span>
             </div>
             <div class="tactical-wall weather-wall">
-              <article class="intel-card card-hero-medium">
-                <header class="card-head"><span class="card-kicker">Local weather brief</span><span class="card-pill">Live</span></header>
-                <p id="weatherBriefText" class="card-brief">Stand by for local weather brief.</p>
-                <div class="weather-carry" id="weatherCarry"></div>
-              </article>
-
-              <article class="intel-card card-standard">
-                <header class="card-head"><span class="card-kicker">Current conditions</span></header>
+              <article class="intel-card weather-conditions-card">
+                <header class="card-head"><span class="card-kicker">Current field conditions</span><span class="card-pill">Live</span></header>
                 <div class="weather-main">
-                  <div class="weather-primary">
-                    <div class="weather-temp-block">
-                      <span class="weather-temp-value" id="weatherTemp">—</span>
-                      <span class="weather-feels" id="weatherFeels"></span>
-                    </div>
-                    <div class="weather-cond-block">
-                      <span class="weather-icon" id="weatherIcon" aria-hidden="true">◈</span>
-                      <span class="weather-cond-text" id="weatherCond">—</span>
-                    </div>
+                  <div class="weather-temp-block">
+                    <span class="weather-temp-value" id="weatherTemp">—</span>
+                    <span class="weather-feels" id="weatherFeels"></span>
+                  </div>
+                  <div class="weather-cond-block">
+                    <span class="weather-icon" id="weatherIcon" aria-hidden="true">WX</span>
+                    <span class="weather-cond-text" id="weatherCond">—</span>
                   </div>
                   <div class="weather-stats">
                     <div class="weather-stat"><span>Wind</span><strong id="weatherWind">—</strong></div>
-                    <div class="weather-stat"><span>Precip.</span><strong id="weatherPrecip">—</strong></div>
+                    <div class="weather-stat"><span>Rain</span><strong id="weatherPrecip">—</strong></div>
                     <div class="weather-stat"><span>Cloud</span><strong id="weatherCloud">—</strong></div>
                   </div>
                 </div>
               </article>
 
-              <article class="intel-card card-list-stream">
+              <article class="intel-card weather-advice-card">
+                <header class="card-head"><span class="card-kicker">Mission kit</span><span class="card-pill">Practical</span></header>
+                <p id="weatherBriefText" class="card-brief">Stand by for local weather brief.</p>
+                <div class="weather-carry" id="weatherCarry"></div>
+              </article>
+
+              <article class="intel-card weather-timeline-card">
                 <header class="card-head"><span class="card-kicker">Today timeline</span></header>
                 <div id="weatherTimeline" class="intel-stream"></div>
               </article>
 
-              <article class="intel-card card-standard world-clock-block" aria-label="World clock">
+              <article class="intel-card world-clock-block" aria-label="World clock">
                 <header class="card-head"><span class="card-kicker">World clock</span></header>
                 <div id="worldClockGrid" class="world-clock-grid">
                   <article class="clock-tile"><span class="clock-city">India</span><strong id="clockIndia">--:--</strong></article>
@@ -115,12 +115,12 @@
                 </div>
               </article>
 
-              <article class="intel-card card-list-stream">
+              <article class="intel-card weather-alert-card">
                 <header class="card-head"><span class="card-kicker">Alerts</span></header>
                 <div id="weatherAlerts" class="intel-stream"></div>
               </article>
 
-              <article class="intel-card card-compact source-utility-card">
+              <article class="intel-card weather-source-card source-utility-card">
                 <header class="card-head"><span class="card-kicker">Source utility</span></header>
                 <div class="source-stack" id="weatherSourceStack">
                   <article class="source-card source-link-compact">
@@ -142,55 +142,7 @@
               <div id="storyCounter" class="story-counter">00 / 00</div>
             </div>
 
-            <div class="tactical-wall intel-wall">
-              <section id="activeClipping" class="intel-card card-hero-medium active-clipping">
-                <div class="active-clipping-sweep" aria-hidden="true"></div>
-                <div class="clip-meta"><span class="clip-source-badge" id="activeSource">Source</span><span id="activeTime">Live</span></div>
-                <h3 id="activeHeadline">Awaiting first narrated signal.</h3>
-                <div class="key-points">
-                  <article class="key-point key-point-primary"><span>Signal</span><strong id="activePointOne">Standing by for first source-backed signal.</strong></article>
-                  <article class="key-point"><span>Implication</span><strong id="activePointTwo">Impact assessment loads with narration.</strong></article>
-                </div>
-                <div class="evidence-strip"><span>Source excerpt</span><p id="activeExcerpt">The intel pane is standing by for the first narrated item.</p></div>
-              </section>
-
-              <article class="intel-card card-chart-card category-card" data-category="markets">
-                <header class="card-head"><span class="card-kicker">Sector heatmap</span></header>
-                <div id="sectorGrid" class="sector-grid"></div>
-              </article>
-              <article class="intel-card card-metric-card category-card" data-category="markets"><header class="card-head"><span class="card-kicker">Crypto tracker</span></header><div id="marketCryptoGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="markets"><header class="card-head"><span class="card-kicker">Metals and materials</span></header><div id="marketMetalsGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="markets"><header class="card-head"><span class="card-kicker">FX board</span></header><div id="marketFxGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="markets"><header class="card-head"><span class="card-kicker">Oil and energy</span></header><div id="marketEnergyGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="markets"><header class="card-head"><span class="card-kicker">Fear and greed</span></header><div id="fearGreedPanel" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-data-table category-card" data-category="markets"><header class="card-head"><span class="card-kicker">Macro movers</span></header><div id="marketMacroGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-standard category-card" data-category="markets"><header class="card-head"><span class="card-kicker">Breadth and signal</span></header><div id="marketBreadthPanel" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-list-stream category-card" data-category="markets"><header class="card-head"><span class="card-kicker">Market headlines</span></header><div id="marketHeadlinesStream" class="intel-stream"></div></article>
-
-              <article class="intel-card card-metric-card category-card" data-category="geopolitics"><header class="card-head"><span class="card-kicker">Country instability</span></header><div id="countryInstabilityGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-standard category-card" data-category="geopolitics"><header class="card-head"><span class="card-kicker">Strategic risk overview</span></header><div id="geoStrategicRisk" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-list-stream category-card" data-category="geopolitics"><header class="card-head"><span class="card-kicker">Intel feed</span></header><div id="geoIntelFeed" class="intel-stream"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="geopolitics"><header class="card-head"><span class="card-kicker">National debt clock</span></header><div id="debtClockPanel" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-list-stream category-card" data-category="geopolitics"><header class="card-head"><span class="card-kicker">Disaster cascade</span></header><div id="disasterCascadeGrid" class="intel-stream"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="geopolitics"><header class="card-head"><span class="card-kicker">Escalation monitor</span></header><div id="geoEscalationGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="geopolitics"><header class="card-head"><span class="card-kicker">Force posture</span></header><div id="geoForcePostureGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="geopolitics"><header class="card-head"><span class="card-kicker">Economic warfare</span></header><div id="geoSanctionsGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-data-table category-card" data-category="geopolitics"><header class="card-head"><span class="card-kicker">Regional risk</span></header><div id="geoRegionalRiskGrid" class="intel-mini-grid"></div></article>
-
-              <article class="intel-card card-data-table category-card" data-category="technology_ai"><header class="card-head"><span class="card-kicker">AI metrics summary</span></header><div id="techMetricsGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="technology_ai"><header class="card-head"><span class="card-kicker">Model and lab activity</span></header><div id="techLabActivityGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="technology_ai"><header class="card-head"><span class="card-kicker">Infrastructure</span></header><div id="techInfrastructureGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="technology_ai"><header class="card-head"><span class="card-kicker">Enterprise adoption</span></header><div id="techEnterpriseGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-metric-card category-card" data-category="technology_ai"><header class="card-head"><span class="card-kicker">Funding and deals</span></header><div id="techFundingGrid" class="intel-mini-grid"></div></article>
-              <article class="intel-card card-list-stream category-card" data-category="technology_ai"><header class="card-head"><span class="card-kicker">AI headlines stream</span></header><div id="techHeadlinesGrid" class="intel-stream"></div></article>
-              <article class="intel-card card-list-stream category-card" data-category="technology_ai"><header class="card-head"><span class="card-kicker">Open-source ecosystem</span></header><div id="techOpenSourceGrid" class="intel-stream"></div></article>
-              <article class="intel-card card-list-stream category-card" data-category="technology_ai"><header class="card-head"><span class="card-kicker">Developer tooling</span></header><div id="techDeveloperGrid" class="intel-stream"></div></article>
-
-              <article class="intel-card card-compact source-utility-card category-card" data-category="geopolitics markets technology_ai">
-                <header class="card-head"><span class="card-kicker">Source utility</span><span id="sourceCount" class="card-pill">0 links</span></header>
-                <div id="sourceStack" class="source-stack"></div>
-              </article>
-            </div>
+            <div id="intelWall" class="tactical-wall intel-wall dashboard-grid" aria-label="Section intelligence wall"></div>
           </article>
 
           <!-- ── CLOSING SCREEN ─────────────────────────────────── -->
@@ -211,10 +163,6 @@
           </article>
         </section>
 
-        <aside class="source-dossier">
-          <div class="mission-clock"><span>Generated</span><strong>__GENERATED_AT__</strong></div>
-          <div class="progress-shell" aria-label="Briefing progress"><div id="progressBar" class="progress-bar"></div></div>
-        </aside>
       </section>
 
       <section class="script-dock">

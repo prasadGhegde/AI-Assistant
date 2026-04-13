@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -33,6 +34,24 @@ def main(argv=None) -> None:
     dash_parser = subparsers.add_parser("dashboard", help="Serve the latest dashboard.")
     dash_parser.add_argument("--host", default="127.0.0.1")
     dash_parser.add_argument("--port", type=int, default=8765)
+
+    replay_parser = subparsers.add_parser(
+        "replay",
+        help="Serve and open the latest generated dashboard/audio without fetching sources or calling APIs.",
+    )
+    replay_parser.add_argument("--host", default="127.0.0.1")
+    replay_parser.add_argument("--port", type=int, default=8765)
+    replay_parser.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        help="Seconds to keep the replay server open before closing Chrome.",
+    )
+    replay_parser.add_argument(
+        "--no-open",
+        action="store_true",
+        help="Serve the saved dashboard without opening Chrome.",
+    )
 
     play_parser = subparsers.add_parser("play", help="Play the latest MP3.")
     play_parser.add_argument("--path", default=None, help="Optional MP3 path.")
@@ -93,6 +112,62 @@ def main(argv=None) -> None:
         serve(config, host=args.host, port=args.port)
         return
 
+    if args.command == "replay":
+        dashboard = config.dashboard_dir / "latest.html"
+        audio = config.audio_dir / "latest.mp3"
+        if not dashboard.exists():
+            print(
+                "No saved dashboard found. Run `make briefing` once before `make replay`.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        if not audio.exists():
+            print(
+                "No saved audio found. Run `make briefing` once before `make replay`.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        try:
+            from .browser import BrowserPresenter
+            from .server import serve, start_background_server
+        except ModuleNotFoundError as exc:
+            print(
+                f"Missing Python dependency `{exc.name}`. Run `make setup` first.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
+        if args.no_open:
+            print(f"Replay URL: http://{args.host}:{args.port}?presentation=1&autoplay=1")
+            serve(config, host=args.host, port=args.port)
+            return
+
+        server = start_background_server(config, host=args.host, port=args.port)
+        presenter = BrowserPresenter(config)
+        opened_url = ""
+        warnings = []
+        try:
+            warnings.extend(
+                presenter.open_dashboard_url(
+                    server.url,
+                    presentation=config.presentation_mode,
+                    external_audio=False,
+                )
+            )
+            opened_url = presenter.last_url
+            timeout = args.timeout if args.timeout is not None else _replay_timeout(config)
+            completed = server.wait_for_completion(timeout)
+            if not completed:
+                warnings.append("Replay timed out before the dashboard reported completion.")
+        finally:
+            if opened_url:
+                warnings.extend(presenter.close_url(opened_url))
+            server.shutdown()
+        for warning in warnings:
+            print(f"Warning: {warning}")
+        return
+
     if args.command == "play":
         from .tts import AudioPlayer
 
@@ -100,6 +175,18 @@ def main(argv=None) -> None:
         warnings = AudioPlayer(config).play(audio_path)
         for warning in warnings:
             print(f"Warning: {warning}")
+
+
+def _replay_timeout(config) -> float:
+    data_path = config.dashboard_dir / "latest.json"
+    try:
+        payload = json.loads(data_path.read_text(encoding="utf-8"))
+        total = float(((payload.get("presentation_timeline") or {}).get("total_seconds")) or 0)
+    except Exception:
+        total = 0
+    if total <= 0:
+        total = 8 * 60
+    return total + config.followup_timeout_seconds + 45
 
 
 if __name__ == "__main__":

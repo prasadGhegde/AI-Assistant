@@ -10,7 +10,8 @@ from morning_briefs.browser import BrowserPresenter
 from morning_briefs.config import load_config
 from morning_briefs.dashboard import DashboardRenderer
 from morning_briefs.extractor import SignalExtractor
-from morning_briefs.models import ExtractedNote, RawItem, ScriptPackage, SignalPackage
+from morning_briefs.intel_data import DashboardIntelCollector
+from morning_briefs.models import ExtractedNote, RawItem, ScriptPackage, SignalPackage, WeatherReport
 from morning_briefs.narration import NarrationPlanner
 from morning_briefs.quality import NewsQualityFilter
 from morning_briefs.server import create_app
@@ -153,6 +154,9 @@ class PipelineContractsTest(unittest.TestCase):
             self.assertIn("## Closing question", script.markdown)
             self.assertNotIn("The watch list turns the briefing into action", script.markdown)
             self.assertNotIn("I will pause for ten seconds", script.markdown)
+            self.assertNotIn("From Test Source", script.spoken_text)
+            self.assertNotIn("Second signal:", script.spoken_text)
+            self.assertNotIn(signals.what_matters_today, script.sections["greeting"])
 
     def test_narration_planner_selects_from_curated_banks(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -168,7 +172,9 @@ class PipelineContractsTest(unittest.TestCase):
             self.assertIn(plan.operation_name, banks["operation_names"])
             self.assertIn(plan.closing, banks["closings"])
             self.assertIn(plan.final_question, banks["final_questions"])
+            self.assertIn(plan.timeout_closing, [entry["text"] if isinstance(entry, dict) else entry for entry in banks["timeout_closings"]])
             self.assertIn(plan.operation_name, plan.opening_line)
+            self.assertTrue(plan.timeout_closing_line.endswith("Captain."))
 
     def test_sparse_model_script_falls_back_cleanly(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -247,6 +253,92 @@ class PipelineContractsTest(unittest.TestCase):
             script, _ = ScriptWriter(config).write(signals, now)
             self.assertNotIn("The source timestamp is", script.markdown)
             self.assertNotIn("The Download:", script.spoken_text)
+
+    def test_weather_fallback_does_not_repeat_carry_sentence(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = replace(
+                load_config(),
+                openai_api_key="",
+                narration_history_path=Path(tmpdir) / "narration_history.json",
+            )
+            now = datetime(2026, 4, 12, 8, 0, tzinfo=config.timezone)
+            note = ExtractedNote(
+                category="markets",
+                headline="Market breadth improves",
+                source_name="Test Source",
+                url="https://example.com/market",
+                published_at="2026-04-12T06:00:00+00:00",
+                excerpt="A constructive market update.",
+                note="The market tone is constructive.",
+                score=1.0,
+                why_it_matters="It keeps the risk read steady.",
+            )
+            weather = WeatherReport(
+                location_name="Berlin",
+                latitude=52.52,
+                longitude=13.405,
+                observed_at=now.isoformat(),
+                temperature=13,
+                apparent_temperature=9,
+                temperature_unit="°C",
+                conditions="light rain",
+                weather_code=61,
+                wind_speed=18,
+                wind_gusts=None,
+                wind_unit="km/h",
+                precipitation_probability=70,
+                cloud_cover=90,
+                carry=["umbrella"],
+                wear=["light jacket"],
+                advisory="Light rain in the forecast, it is 13 degrees. Carry umbrella and wear light jacket.",
+            )
+            signals = SignalPackage(
+                generated_at=now.isoformat(),
+                lookback_hours=24,
+                what_matters_today="Constructive markets are in focus.",
+                sections={"geopolitics": [], "technology_ai": [], "markets": [note]},
+            )
+            script, _ = ScriptWriter(config).write(signals, now, weather)
+            weather_text = script.sections["weather"].lower()
+            self.assertEqual(weather_text.count("carry umbrella"), 1)
+            self.assertEqual(weather_text.count("wear light jacket"), 1)
+
+    def test_market_fallback_speaks_real_btc_and_oil_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = replace(
+                load_config(),
+                openai_api_key="",
+                narration_history_path=Path(tmpdir) / "narration_history.json",
+            )
+            now = datetime(2026, 4, 12, 8, 0, tzinfo=config.timezone)
+            note = ExtractedNote(
+                category="markets",
+                headline="Market breadth improves",
+                source_name="Test Source",
+                url="https://example.com/market",
+                published_at="2026-04-12T06:00:00+00:00",
+                excerpt="A constructive market update.",
+                note="The market tone is constructive.",
+                score=1.0,
+                why_it_matters="It keeps the risk read steady.",
+            )
+            signals = SignalPackage(
+                generated_at=now.isoformat(),
+                lookback_hours=24,
+                what_matters_today="Constructive markets are in focus.",
+                sections={"geopolitics": [], "technology_ai": [], "markets": [note]},
+            )
+            market_snapshot = {
+                "crypto": {"items": [{"symbol": "BTC", "price_usd": 72158, "change_24h": 1.4}]},
+                "energy": {"items": [{"name": "Brent crude", "value": 83.2, "unit": "USD/bbl"}]},
+            }
+            script, _ = ScriptWriter(config).write(
+                signals,
+                now,
+                market_snapshot=market_snapshot,
+            )
+            self.assertIn("Bitcoin is holding around 72,200 dollars, holding firm.", script.spoken_text)
+            self.assertIn("Brent crude is trading near 83 dollars a barrel, still elevated.", script.spoken_text)
 
     def test_voice_effect_warns_without_ffmpeg(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -351,6 +443,49 @@ class PipelineContractsTest(unittest.TestCase):
         self.assertNotIn("text-overflow", css)
         self.assertNotIn("-webkit-line-clamp", css)
         self.assertNotIn("display: -webkit-box", css)
+
+    def test_mock_dashboard_fallback_marks_empty_modules(self):
+        config = replace(load_config(), use_fake_data_when_empty=True)
+        payload = {
+            "markets": {"crypto": {"available": False, "items": []}, "energy": {"available": False, "items": []}},
+            "geopolitics": {"escalation_monitor": {"items": []}},
+            "technology_ai": {"developer_tooling": {"items": []}},
+        }
+        changed = DashboardIntelCollector(config)._apply_mock_fallbacks(payload)
+        self.assertTrue(changed)
+        self.assertTrue(payload["markets"]["crypto"]["mock"])
+        self.assertTrue(payload["markets"]["energy"]["mock"])
+        self.assertTrue(payload["geopolitics"]["escalation_monitor"]["mock"])
+        self.assertTrue(payload["technology_ai"]["developer_tooling"]["mock"])
+
+    def test_dashboard_uses_modular_intel_wall_not_hero_clipping(self):
+        root = Path(__file__).parents[1]
+        template = (root / "morning_briefs/web/templates/dashboard.html").read_text()
+        script = (root / "morning_briefs/web/static/dashboard.js").read_text()
+        css = (root / "morning_briefs/web/static/dashboard.css").read_text()
+        self.assertIn('id="intelWall"', template)
+        self.assertIn('id="closingAudio"', template)
+        self.assertIn("navigator.sendBeacon", script)
+        self.assertIn("is-mock-data", css)
+        self.assertIn("function buildMarketsBoard", script)
+        self.assertIn("function buildGeopoliticsBoard", script)
+        self.assertIn("function buildTechnologyBoard", script)
+        markets_board = script[script.index("function buildMarketsBoard") : script.index("function buildGeopoliticsBoard")]
+        geopolitics_board = script[script.index("function buildGeopoliticsBoard") : script.index("function buildTechnologyBoard")]
+        technology_board = script[script.index("function buildTechnologyBoard") : script.index("function renderIntelBoard")]
+        self.assertLess(markets_board.index('storyBriefCard("markets"'), markets_board.index("sectorHeatmapCard()"))
+        self.assertLess(geopolitics_board.index('storyBriefCard("geopolitics"'), geopolitics_board.index("Country instability"))
+        self.assertLess(technology_board.index('storyBriefCard("technology_ai"'), technology_board.index("AI metrics summary"))
+        self.assertNotIn("activeClipping", template)
+        self.assertNotIn("activeClipping", script)
+        self.assertNotIn("source-dossier", template)
+        self.assertIn("overflow:hidden", css)
+
+    def test_makefile_has_saved_replay_command(self):
+        makefile = (Path(__file__).parents[1] / "Makefile").read_text()
+        self.assertIn("replay:", makefile)
+        self.assertIn("python3 -m morning_briefs replay", makefile)
+        self.assertIn("dashboard_fixture:", makefile)
 
     def test_weather_guidance_adds_umbrella_and_jacket(self):
         carry, wear, advisory = weather_guidance(

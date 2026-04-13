@@ -107,12 +107,18 @@ class BrowserPresenter:
         if not self._should_use_chrome():
             return ["Automatic tab closing is only implemented for Google Chrome."]
         warnings.extend(self._restore_fullscreen_toolbar())
+        target_escaped = self._applescript_quote(target)
+        target_base = target.split("?", 1)[0].rstrip("/")
+        target_base_escaped = self._applescript_quote(target_base)
         script = f'''
+set targetUrl to "{target_escaped}"
+set targetBase to "{target_base_escaped}"
 tell application "{self.config.browser_app}"
   repeat with browserWindow in windows
     repeat with browserTab in tabs of browserWindow
-      if (URL of browserTab starts with "{target}") then
-        close browserTab
+      set tabUrl to URL of browserTab
+      if (tabUrl starts with targetUrl) or (tabUrl starts with targetBase) then
+        close browserWindow
         return
       end if
     end repeat
@@ -243,3 +249,7 @@ return restoredToolbar as text
     @staticmethod
     def _apple_bool(value: bool) -> str:
         return "true" if value else "false"
+
+    @staticmethod
+    def _applescript_quote(value: str) -> str:
+        return value.replace("\\", "\\\\").replace('"', '\\"')

@@ -13,7 +13,7 @@ EQ_PRESENCE_GAIN ?= 4
 EQ_HIGH_FREQ ?= 4200
 EQ_HIGH_GAIN ?= 3
 
-.PHONY: setup briefing dashboard test install-launchd unload-launchd audio_test
+.PHONY: setup briefing replay dashboard dashboard_fixture test install-launchd unload-launchd audio_test
 
 setup:
 	python3 -m venv .venv
@@ -22,8 +22,16 @@ setup:
 briefing:
 	. .venv/bin/activate && python3 -m morning_briefs run --play
 
+replay:
+	. .venv/bin/activate && python3 -m morning_briefs replay
+
 dashboard:
 	. .venv/bin/activate && python3 -m morning_briefs dashboard
+
+dashboard_fixture:
+	. .venv/bin/activate && python3 scripts/render_dashboard_fixture.py \
+		--snapshot output/dashboard/latest.json \
+		--out output/dashboard/fixture.html
 
 test:
 	. .venv/bin/activate && python -m unittest discover -s tests

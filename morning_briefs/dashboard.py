@@ -27,6 +27,7 @@ class DashboardRenderer:
         generated_at: datetime,
         audio_path: Optional[Path],
         output_path: Path,
+        timeout_closing_audio_path: Optional[Path] = None,
     ) -> Tuple[Path, Path]:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         assets_dir = output_path.parent / "assets"
@@ -42,7 +43,15 @@ class DashboardRenderer:
             ):
                 shutil.copyfile(self.config.music_source_path, music_asset_path)
 
-        data = self._dashboard_data(signals, script, weather, intel, generated_at, audio_path)
+        data = self._dashboard_data(
+            signals,
+            script,
+            weather,
+            intel,
+            generated_at,
+            audio_path,
+            timeout_closing_audio_path,
+        )
         data_path = output_path.with_suffix(".json")
         save_json(data_path, data)
 
@@ -66,10 +75,14 @@ class DashboardRenderer:
         intel: Dict[str, object],
         generated_at: datetime,
         audio_path: Optional[Path],
+        timeout_closing_audio_path: Optional[Path] = None,
     ) -> Dict[str, object]:
         audio_src = None
         if audio_path and audio_path.exists():
             audio_src = "../audio/latest.mp3"
+        timeout_closing_audio_src = None
+        if timeout_closing_audio_path and timeout_closing_audio_path.exists():
+            timeout_closing_audio_src = f"../audio/session/{timeout_closing_audio_path.name}"
         music_src = None
         if self.config.music_enabled and self.config.music_source_path.exists():
             music_src = f"assets/{self.config.music_source_path.name}"
@@ -90,6 +103,8 @@ class DashboardRenderer:
             "script_markdown": script.markdown,
             "script_sections": script.sections,
             "narration_plan": script.narration_plan,
+            "timeout_closing_line": script.narration_plan.get("timeout_closing_line", ""),
+            "timeout_closing_audio_src": timeout_closing_audio_src,
             "word_count": script.word_count,
             "presentation_timeline": self._presentation_timeline(script, signals),
             "music_enabled": self.config.music_enabled,

@@ -12,7 +12,8 @@
       "technology_transitions",
       "market_transitions",
       "closings",
-      "final_questions"
+      "final_questions",
+      "timeout_closings"
     ]
   },
   "phrase_banks": {
@@ -37,26 +38,26 @@
       "This is your morning briefing for {operation_name}."
     ],
     "intro_lines": [
-      "The signal is clean, the noise is contained, and the morning picture is coming into focus.",
-      "I have filtered the overnight feed down to the signals most useful for the day ahead.",
-      "The console is aligned, the sources are checked, and the useful signal is ready.",
-      "I will keep this concise, source-led, and tuned for action."
+      "I hope you slept well; the console is warmed up and the morning picture is coming into focus.",
+      "Good to have you back at the console; overnight noise has been filtered down to the usable signal.",
+      "I trust the previous mission ended cleanly; this morning's operating picture is ready.",
+      "The sources are checked, the signal is tight, and we can keep this sharp."
     ],
     "weather_transitions": [
-      "First, a quick read on the conditions outside.",
-      "Before the intelligence pass, a practical look at the weather.",
-      "We will start with the outside conditions, then move into the signal.",
+      "First, let us assess field conditions before we step into the day.",
+      "Opening the weather pane now: kit, movement, and the outside picture.",
+      "Before the intelligence pass, a quick operational read on conditions outside.",
       "First checkpoint: weather, kit, and movement."
     ],
     "geopolitics_transitions": [
-      "Now to the global front, where the useful signal is diplomatic and operational.",
-      "The first intelligence pane is global, with emphasis on constructive movement.",
-      "On the geopolitical board, the strongest signal is the one with practical follow-through.",
-      "Turning to the world stage, the focus is on developments that can shape the workday."
+      "The global pane is up; I am watching the moves with practical follow-through.",
+      "On the geopolitical board, the useful signal is what changes posture, access, or leverage.",
+      "Turning to the world stage, the focus is on movement that can shape the workday.",
+      "Global watch is live; no theatre, just the developments with operational weight."
     ],
     "technology_transitions": [
-      "The technology pane is next, with AI signal separated from noise.",
-      "On the technology front, I am watching the developments most likely to affect decisions.",
+      "The technology pane is next, with AI signal separated from theatre.",
+      "On the technology front, I am watching the developments most likely to alter decisions.",
       "The next pass is technology and AI, filtered for substance over spectacle.",
       "Now to the AI and platform layer, where practical momentum matters most."
     ],
@@ -77,6 +78,12 @@
       "Would you like a deeper look at any front, Captain?",
       "Any area you would like me to expand on, Captain?",
       "Do you want a follow-up on any item from today's briefing?"
+    ],
+    "timeout_closings": [
+      "Okay, no further questions on the board. I am closing {operation_name} now. Have a strong day, Captain.",
+      "No further questions logged. I am ending the mission call now. You are clear for the day, Captain.",
+      "All quiet on follow-up. I will close the console here. Move well today, Captain.",
+      "Looks like we are clear. I am standing down from {operation_name}; have a sharp day, Captain."
     ]
   }
 }

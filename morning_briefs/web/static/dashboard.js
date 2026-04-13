@@ -31,6 +31,7 @@ let playbackStarting = false;
 let musicFadeFrame = null;
 let audioSyncFrame = null;
 let worldClockTimer = null;
+let finalCloseInProgress = false;
 
 const VISUAL_SYNC_LEAD_SECONDS = 0.42;
 
@@ -39,6 +40,7 @@ const audioStatus = document.getElementById("audioStatus");
 const musicStatus = document.getElementById("musicStatus");
 const briefAudio = document.getElementById("briefAudio");
 const musicAudio = document.getElementById("musicAudio");
+const closingAudio = document.getElementById("closingAudio");
 
 if (presentationMode) {
   document.body.classList.add("presentation-active");
@@ -137,16 +139,16 @@ function firstSentence(value, fallback) {
 }
 
 function weatherIconForCode(code) {
-  if (code == null) return "◈";
+  if (code == null) return "WX";
   const c = Number(code);
-  if (c === 0) return "☀";
-  if (c <= 2) return "⛅";
-  if (c <= 3) return "☁";
-  if (c <= 49) return "🌫";
-  if (c <= 69) return "🌧";
-  if (c <= 84) return "🌦";
-  if (c <= 94) return "⛈";
-  return "⛈";
+  if (c === 0) return "CLR";
+  if (c <= 2) return "PART";
+  if (c <= 3) return "CLD";
+  if (c <= 49) return "FOG";
+  if (c <= 69) return "RAIN";
+  if (c <= 84) return "SHWR";
+  if (c <= 94) return "STORM";
+  return "WX";
 }
 
 function runBootSequence() {
@@ -184,6 +186,9 @@ function renderPhaseRail() {
 
 function renderWeather() {
   const w = data.weather || {};
+  document.querySelectorAll("#screen-weather .intel-card").forEach((node) => {
+    node.classList.toggle("is-mock-data", Boolean(w.mock));
+  });
   const tempEl = document.getElementById("weatherTemp");
   const feelsEl = document.getElementById("weatherFeels");
   const iconEl = document.getElementById("weatherIcon");
@@ -214,8 +219,10 @@ function renderWeather() {
 
   const carryEl = document.getElementById("weatherCarry");
   if (carryEl) {
-    const tags = [...(w.carry || []), ...(w.wear || [])].filter(Boolean).slice(0, 6);
-    carryEl.innerHTML = tags.map((t) => `<span class="weather-carry-tag">${escapeHtml(t)}</span>`).join("");
+    const tags = [...(w.carry || []), ...(w.wear || [])].filter(Boolean).slice(0, 3);
+    carryEl.innerHTML = tags.length
+      ? tags.map((t) => `<span class="weather-carry-tag">${escapeHtml(t)}</span>`).join("")
+      : `<span class="weather-carry-tag">standard kit</span>`;
   }
 
   const timelineEl = document.getElementById("weatherTimeline");
@@ -260,247 +267,363 @@ function renderWorldClock() {
   worldClockTimer = window.setInterval(update, 30000);
 }
 
-function toggleCategoryCards(category) {
-  document.querySelectorAll(".category-card").forEach((node) => {
-    const categories = (node.dataset.category || "").split(/\s+/).filter(Boolean);
-    const visible = categories.includes(category);
-    node.classList.toggle("hidden", !visible);
-  });
-}
-
-function renderSourceStack(category) {
-  const notes = section(category);
-  const stack = document.getElementById("sourceStack");
-  const count = document.getElementById("sourceCount");
-  if (!stack || !count) return;
-
-  const links = notes.slice(0, 3);
-  count.textContent = `${links.length} links`;
-  stack.innerHTML = links.map((note) => `
-    <article class="source-card source-link-compact">
-      <small>${escapeHtml(note.source_name || "source")}</small>
-      <strong>${link(note.headline || "Untitled", note.url)}</strong>
-    </article>
-  `).join("") || `<article class="source-card source-link-compact"><strong>No links for this section.</strong></article>`;
-}
-
-function renderSectorHeatmap() {
-  const grid = document.getElementById("sectorGrid");
-  if (!grid) return;
-  const moduleData = (((intel().markets || {}).sector_heatmap) || {});
-  const items = moduleData.items || [];
-  if (!items.length) {
-    grid.innerHTML = `<div class="sector-cell heat-flat"><div class="sector-ticker">N/A</div><span class="sector-pct flat">Unavailable</span></div>`;
-    return;
-  }
-  grid.innerHTML = items.slice(0, 9).map((row) => {
-    const intensity = Number(row.intensity || 0);
-    let cls = "heat-flat";
-    if (row.band === "high") cls = "heat-pos-strong";
-    else if (row.band === "medium") cls = "heat-pos";
-    else if (row.band === "low") cls = "heat-flat";
-    return `<div class="sector-cell ${cls}">
-      <div class="sector-ticker">${escapeHtml(row.name || "Sector")}</div>
-      <span class="sector-pct pos">${escapeHtml(String(row.hits || 0))} hits</span>
-      <span class="sector-name">${escapeHtml(String(intensity))}% intensity</span>
-    </div>`;
-  }).join("");
-}
-
-function renderGeopoliticsPanels() {
-  const instabilityGrid = document.getElementById("countryInstabilityGrid");
-  const debtClockPanel = document.getElementById("debtClockPanel");
-  const disasterGrid = document.getElementById("disasterCascadeGrid");
-  if (!instabilityGrid || !debtClockPanel || !disasterGrid) return;
-
-  const geo = intel().geopolitics || {};
-  const instability = (geo.country_instability || {}).items || [];
-  instabilityGrid.innerHTML = instability.slice(0, 8).map((row) => `
-    <article class="intel-chip-card">
-      <span>${escapeHtml(row.name || "Region")}</span>
-      <strong>${escapeHtml(String(row.score == null ? "--" : row.score))}</strong>
-    </article>
-  `).join("") || `<article class="intel-chip-card"><span>No data</span><strong>--</strong></article>`;
-
-  const debt = geo.national_debt_clock || {};
-  debtClockPanel.innerHTML = debt.available
-    ? `<article class="intel-chip-card intel-wide">
-         <span>US debt</span>
-         <strong>${escapeHtml(debt.display || "Unavailable")}</strong>
-         <small>${escapeHtml(debt.updated_at || "")}</small>
-       </article>`
-    : `<article class="intel-chip-card intel-wide"><span>Debt clock</span><strong>Unavailable</strong></article>`;
-
-  const disasters = (geo.disaster_cascade || {}).items || [];
-  disasterGrid.innerHTML = disasters.slice(0, 8).map((row) => `
-    <article class="intel-chip-card intel-disaster">
-      <span>${escapeHtml(row.type || "Event")}</span>
-      <strong>${escapeHtml(row.title || "Unnamed")}</strong>
-      <small>${escapeHtml(compactDate(row.time))}</small>
-    </article>
-  `).join("") || `<article class="intel-chip-card"><span>No active events</span><strong>--</strong></article>`;
-
-  const riskEl = document.getElementById("geoStrategicRisk");
-  if (riskEl) {
-    const risk = geo.strategic_risk || {};
-    riskEl.innerHTML = `<article class="intel-chip-card intel-wide"><span>risk status</span><strong>${escapeHtml(risk.label || "Unavailable")}</strong><small>${escapeHtml(risk.detail || "")}</small></article>`;
-  }
-
-  const feedEl = document.getElementById("geoIntelFeed");
-  if (feedEl) {
-    const feed = (geo.intel_feed || {}).items || [];
-    feedEl.innerHTML = feed.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.region || "region")}</span><strong>${escapeHtml(row.headline || "")}</strong></article>`).join("") || `<article class="intel-chip-card"><span>feed</span><strong>No live feed</strong></article>`;
-  }
-
-  [
-    ["geoEscalationGrid", (geo.escalation_monitor || {}).items || [], "level"],
-    ["geoForcePostureGrid", (geo.force_posture || {}).items || [], "status"],
-    ["geoSanctionsGrid", (geo.sanctions_pressure || {}).items || [], "pressure"],
-    ["geoRegionalRiskGrid", (geo.regional_risk || {}).items || [], "score"],
-  ].forEach(([id, rows, field]) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name || row.region || "region")}</span><strong>${escapeHtml(String(row[field] ?? row.value ?? "--"))}</strong></article>`).join("") || `<article class="intel-chip-card"><span>module</span><strong>Unavailable</strong></article>`;
-  });
-}
-
-function renderMarketPanels() {
-  const metalsGrid = document.getElementById("marketMetalsGrid");
-  const cryptoGrid = document.getElementById("marketCryptoGrid");
-  const fearPanel = document.getElementById("fearGreedPanel");
-  const fxGrid = document.getElementById("marketFxGrid");
-  const energyGrid = document.getElementById("marketEnergyGrid");
-  const macroGrid = document.getElementById("marketMacroGrid");
-  const breadthPanel = document.getElementById("marketBreadthPanel");
-  const headlinesPanel = document.getElementById("marketHeadlinesStream");
-  if (!metalsGrid || !cryptoGrid || !fearPanel) return;
-
-  const markets = intel().markets || {};
-  const metals = (markets.metals_materials || {}).items || [];
-  metalsGrid.innerHTML = metals.length
-    ? metals.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name)}</span><strong>${escapeHtml(String(row.mentions))} mentions</strong></article>`).join("")
-    : `<article class="intel-chip-card"><span>Metals/materials</span><strong>No live signals</strong></article>`;
-
-  const crypto = (markets.crypto || {}).items || [];
-  cryptoGrid.innerHTML = crypto.length
-    ? crypto.map((row) => {
-      const change = row.change_24h == null ? "--" : `${row.change_24h >= 0 ? "+" : ""}${row.change_24h.toFixed(2)}%`;
-      return `<article class="intel-chip-card"><span>${escapeHtml(row.symbol)}</span><strong>$${Number(row.price_usd).toLocaleString()}</strong><small>${escapeHtml(change)}</small></article>`;
-    }).join("")
-    : `<article class="intel-chip-card"><span>Crypto</span><strong>Unavailable</strong></article>`;
-
-  const fg = markets.fear_greed || {};
-  fearPanel.innerHTML = `<article class="intel-chip-card intel-wide">
-    <span>${escapeHtml(fg.mode === "fallback_proxy" ? "Fear & greed (proxy)" : "Fear & greed")}</span>
-    <strong>${escapeHtml(fg.value == null ? "--" : `${fg.value} / 100`)}</strong>
-    <small>${escapeHtml(fg.label || "Unavailable")}</small>
-  </article>`;
-
-  if (fxGrid) {
-    const rows = (markets.fx || {}).items || [];
-    fxGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.pair || "FX")}</span><strong>${escapeHtml(String(row.rate ?? "--"))}</strong></article>`).join("") || `<article class="intel-chip-card"><span>FX</span><strong>Unavailable</strong></article>`;
-  }
-
-  if (energyGrid) {
-    const rows = (markets.energy || {}).items || [];
-    energyGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name || "Energy")}</span><strong>${escapeHtml(String(row.value ?? "--"))}</strong><small>${escapeHtml(row.unit || "")}</small></article>`).join("") || `<article class="intel-chip-card"><span>Energy</span><strong>Unavailable</strong></article>`;
-  }
-
-  if (macroGrid) {
-    const rows = (markets.macro_movers || {}).items || [];
-    macroGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name || "Macro")}</span><strong>${escapeHtml(String(row.value ?? "--"))}</strong><small>${escapeHtml(row.change || "")}</small></article>`).join("") || `<article class="intel-chip-card"><span>Macro</span><strong>Unavailable</strong></article>`;
-  }
-
-  if (breadthPanel) {
-    const breadth = markets.breadth || {};
-    breadthPanel.innerHTML = `<article class="intel-chip-card intel-wide"><span>breadth mode</span><strong>${escapeHtml(breadth.label || "Unavailable")}</strong><small>${escapeHtml(breadth.detail || "")}</small></article>`;
-  }
-
-  if (headlinesPanel) {
-    const rows = (markets.headlines || {}).items || [];
-    headlinesPanel.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.source || "source")}</span><strong>${escapeHtml(row.headline || "")}</strong></article>`).join("") || `<article class="intel-chip-card"><span>headlines</span><strong>No market headlines</strong></article>`;
-  }
-}
-
-function renderTechPanels() {
-  const grid = document.getElementById("techMetricsGrid");
-  const labGrid = document.getElementById("techLabActivityGrid");
-  const infraGrid = document.getElementById("techInfrastructureGrid");
-  const enterpriseGrid = document.getElementById("techEnterpriseGrid");
-  const fundingGrid = document.getElementById("techFundingGrid");
-  const headlinesGrid = document.getElementById("techHeadlinesGrid");
-  const ossGrid = document.getElementById("techOpenSourceGrid");
-  const devGrid = document.getElementById("techDeveloperGrid");
-  if (!grid) return;
-  const tech = (intel().technology_ai || {});
-  const metrics = (((intel().technology_ai || {}).metrics) || []);
-  grid.innerHTML = metrics.map((m) => `
-    <article class="intel-chip-card intel-wide">
-      <span>${escapeHtml(m.label || "Metric")}</span>
-      <strong>${escapeHtml(m.value == null ? "--" : String(m.value))}</strong>
-      <small>${escapeHtml(m.detail || "")}</small>
-    </article>
-  `).join("") || `<article class="intel-chip-card intel-wide"><span>AI metrics</span><strong>Unavailable</strong></article>`;
-
-  const writeList = (el, rows, labelField = "name", valueField = "value") => {
-    if (!el) return;
-    el.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row[labelField] || "item")}</span><strong>${escapeHtml(String(row[valueField] ?? row.label ?? "--"))}</strong><small>${escapeHtml(row.detail || "")}</small></article>`).join("") || `<article class="intel-chip-card"><span>module</span><strong>Unavailable</strong></article>`;
-  };
-
-  writeList(labGrid, (tech.lab_activity || {}).items || []);
-  writeList(infraGrid, (tech.infrastructure || {}).items || []);
-  writeList(enterpriseGrid, (tech.enterprise_adoption || {}).items || []);
-  writeList(fundingGrid, (tech.funding_deals || {}).items || []);
-
-  if (headlinesGrid) {
-    const rows = (tech.headlines || {}).items || [];
-    headlinesGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.source || "source")}</span><strong>${escapeHtml(row.headline || "")}</strong></article>`).join("") || `<article class="intel-chip-card"><span>headlines</span><strong>No AI headlines</strong></article>`;
-  }
-  if (ossGrid) {
-    const rows = (tech.open_source || {}).items || [];
-    ossGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name || "oss")}</span><strong>${escapeHtml(row.value || row.headline || "")}</strong></article>`).join("") || `<article class="intel-chip-card"><span>open-source</span><strong>Unavailable</strong></article>`;
-  }
-  if (devGrid) {
-    const rows = (tech.developer_tooling || {}).items || [];
-    devGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name || "dev")}</span><strong>${escapeHtml(row.value || row.headline || "")}</strong></article>`).join("") || `<article class="intel-chip-card"><span>developer</span><strong>Unavailable</strong></article>`;
-  }
-}
-
-function renderCategory(category) {
-  if (!category || currentCategory === category) return;
-  currentCategory = category;
-  const kickerEl = document.getElementById("categoryKicker");
-  if (kickerEl) {
-    kickerEl.innerHTML = `<span class="status-dot status-live"></span>Intel sequence`;
-  }
-  const titleEl = document.getElementById("categoryTitle");
-  if (titleEl) {
-    titleEl.textContent = categoryLabels[category] || "Morning signal";
-  }
-  toggleCategoryCards(category);
-  renderSourceStack(category);
-}
-
 function cleanImplication(value) {
   return text(value, "Watch the follow-through, not just the headline.")
     .replace(/^why (it|this) matters( today)?\s*:\s*/i, "")
     .replace(/^this is important because\s*/i, "");
 }
 
-function activateClipping(topic) {
-  const note = noteForTopic(topic);
-  if (!note) return;
-  const active = document.getElementById("activeClipping");
-  active.classList.add("is-pivoting");
-  window.setTimeout(() => active.classList.remove("is-pivoting"), 280);
+function isMockModule(module) {
+  return Boolean(module && module.mock);
+}
 
-  document.getElementById("activeSource").textContent = note.source_name || "Source";
-  document.getElementById("activeTime").textContent = compactDate(note.published_at);
-  document.getElementById("activeHeadline").textContent = note.headline || "Active clipping";
-  document.getElementById("activePointOne").textContent = note.note || note.excerpt || "Signal is still resolving.";
-  document.getElementById("activePointTwo").textContent = cleanImplication(note.why_it_matters || note.note);
-  document.getElementById("activeExcerpt").textContent = note.excerpt || note.note || "No excerpt was provided for this source.";
+function cardShell({title, kicker, status = "", size = "standard", body = "", topicKey = "", extraClass = "", cardId = "", mock = false}) {
+  const topicAttr = topicKey ? ` data-topic-key="${escapeAttr(topicKey)}"` : "";
+  const idAttr = cardId ? ` data-card-id="${escapeAttr(cardId)}"` : "";
+  const statusHtml = status ? `<span class="card-pill">${escapeHtml(status)}</span>` : "";
+  const mockClass = mock ? " is-mock-data" : "";
+  return `
+    <article class="intel-card dashboard-card card-${escapeAttr(size)} ${escapeAttr(extraClass)}${mockClass}"${topicAttr}${idAttr}>
+      <header class="card-head">
+        <span class="card-kicker">${escapeHtml(kicker || "module")}</span>
+        ${statusHtml}
+      </header>
+      ${title ? `<h3 class="card-title">${escapeHtml(title)}</h3>` : ""}
+      ${body}
+    </article>
+  `;
+}
 
+function topicKey(category, index) {
+  return `${category}-${index}`;
+}
+
+function unavailable(label, detail = "Provider unavailable for this run.") {
+  return `
+    <div class="module-empty">
+      <span>Unavailable</span>
+      <strong>${escapeHtml(label)}</strong>
+      <small>${escapeHtml(detail)}</small>
+    </div>
+  `;
+}
+
+function displayValue(value) {
+  if (value == null || value === "") {
+    return "--";
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const abs = Math.abs(value);
+    const digits = abs >= 100 ? 2 : abs >= 1 ? 3 : 5;
+    return new Intl.NumberFormat(undefined, {maximumFractionDigits: digits}).format(value);
+  }
+  return String(value);
+}
+
+function detailValue(row, detailField) {
+  const value = row[detailField] || row.unit || row.change || row.updated_at;
+  if (!value) {
+    return "";
+  }
+  if (detailField === "time" || detailField === "updated_at") {
+    return compactDate(value) || String(value);
+  }
+  return String(value);
+}
+
+function storyBriefCard(category, title, kicker) {
+  const note = section(category)[0];
+  if (!note) {
+    return cardShell({
+      title,
+      kicker,
+      size: "wide",
+      status: "gap",
+      extraClass: "board-story is-unavailable",
+      body: unavailable("No primary story", "The source pipeline did not return a strong lead item."),
+    });
+  }
+  const signal = firstSentence(note.note || note.excerpt, "Signal is resolving.");
+  const implication = firstSentence(cleanImplication(note.why_it_matters || note.note), "Watch the follow-through, not just the headline.");
+  return cardShell({
+    title,
+    kicker,
+    size: "wide",
+    status: "lead",
+    topicKey: topicKey(category, 0),
+    extraClass: "board-story board-story-lead",
+    body: `
+      <div class="story-source-row">
+        <span>${escapeHtml(note.source_name || "source")}</span>
+        <span>${escapeHtml(compactDate(note.published_at) || "live")}</span>
+      </div>
+      <h4 class="story-title">${escapeHtml(note.headline || "Untitled signal")}</h4>
+      <div class="signal-pair">
+        <article><span>Signal</span><strong>${escapeHtml(signal)}</strong></article>
+        <article><span>Implication</span><strong>${escapeHtml(implication)}</strong></article>
+      </div>
+    `,
+  });
+}
+
+function storyCards(category, startIndex = 1, limit = 2) {
+  return section(category).slice(startIndex, startIndex + limit).map((note, offset) => {
+    const index = startIndex + offset;
+    return cardShell({
+      title: `Signal ${String(index + 1).padStart(2, "0")}`,
+      kicker: note.source_name || categoryLabels[category] || "source",
+      size: "standard",
+      status: compactDate(note.published_at) || "live",
+      topicKey: topicKey(category, index),
+      extraClass: "board-story board-story-compact",
+      body: `
+        <h4 class="story-title story-title-small">${escapeHtml(note.headline || "Untitled signal")}</h4>
+        <p class="story-note">${escapeHtml(note.note || note.excerpt || "Signal still resolving.")}</p>
+      `,
+    });
+  }).join("");
+}
+
+function miniRows(rows, options = {}) {
+  const labelField = options.labelField || "name";
+  const valueField = options.valueField || "value";
+  const detailField = options.detailField || "detail";
+  const rowsHtml = (rows || []).map((row) => `
+    <article class="intel-chip-card">
+      <span>${escapeHtml(row[labelField] || row.region || row.source || row.symbol || row.pair || row.type || "item")}</span>
+      <strong>${escapeHtml(displayValue(row[valueField] ?? row.label ?? row.headline ?? row.display ?? row.rate ?? row.value))}</strong>
+      ${detailValue(row, detailField) ? `<small>${escapeHtml(detailValue(row, detailField))}</small>` : ""}
+    </article>
+  `).join("");
+  return rowsHtml || unavailable(options.emptyLabel || "No live rows", options.emptyDetail || "The provider returned no usable values.");
+}
+
+function barRows(rows, labelField = "name", valueField = "score") {
+  const numeric = (rows || []).map((row) => Number(row[valueField] ?? row.intensity ?? row.events ?? 0)).filter(Number.isFinite);
+  const maxValue = Math.max(...numeric, 1);
+  const html = (rows || []).map((row) => {
+    const value = Number(row[valueField] ?? row.intensity ?? row.events ?? 0);
+    const normalized = maxValue > 100 ? value / maxValue * 100 : maxValue <= 10 ? value / maxValue * 100 : value;
+    const width = Math.min(Math.max(normalized, 0), 100);
+    return `
+      <div class="bar-row">
+        <span>${escapeHtml(row[labelField] || "item")}</span>
+        <div class="bar-track"><i style="width:${width}%"></i></div>
+        <strong>${escapeHtml(displayValue(row[valueField] ?? row.intensity))}</strong>
+      </div>
+    `;
+  }).join("");
+  return html || unavailable("No ranked signal", "Not enough accepted items to calculate this module.");
+}
+
+function topPulseCard({title, kicker, status = "live", value, detail, extraClass = "", mock = false}) {
+  return cardShell({
+    title,
+    kicker,
+    status,
+    size: "metric-card",
+    extraClass: `gauge-card top-pulse-card ${extraClass}`,
+    mock,
+    body: `<div class="gauge-value">${escapeHtml(displayValue(value))}</div><div class="gauge-label">${escapeHtml(detail || "")}</div>`,
+  });
+}
+
+function metricsByLabel(metrics) {
+  const out = {};
+  (metrics || []).forEach((metric) => {
+    out[String(metric.label || "").toLowerCase()] = metric;
+  });
+  return out;
+}
+
+function sourceUtilityCard(category) {
+  const links = section(category).slice(0, 4);
+  const body = links.map((note) => `
+    <a class="source-tiny" href="${escapeAttr(note.url || "#")}" target="_blank" rel="noreferrer">
+      <span>${escapeHtml(note.source_name || "source")}</span>
+      <strong>${escapeHtml(note.headline || "Untitled")}</strong>
+    </a>
+  `).join("") || unavailable("No source links", "No source URLs were included in this section.");
+  return cardShell({
+    title: "",
+    kicker: "Source utility",
+    status: `${links.length} links`,
+    size: "compact",
+    extraClass: "source-utility-card",
+    body: `<div class="source-tiny-stack">${body}</div>`,
+  });
+}
+
+function sectionHeadlineStream(category, rows, title, mock = false) {
+  const used = new Set(section(category).slice(0, 3).map((note) => String(note.headline || "").toLowerCase()));
+  const uniqueRows = (rows || []).filter((row) => {
+    const key = String(row.headline || "").toLowerCase();
+    if (!key || used.has(key)) return false;
+    used.add(key);
+    return true;
+  }).slice(0, 5);
+  const body = uniqueRows.map((row) => `
+    <article class="stream-row">
+      <span>${escapeHtml(row.source || "source")}</span>
+      <strong>${escapeHtml(row.headline || "Untitled")}</strong>
+    </article>
+  `).join("") || unavailable("No extra headlines", "Main story cards already cover the accepted items.");
+  return cardShell({title, kicker: "headline stream", status: mock ? "mock" : "", size: "list-stream", mock, body: `<div class="intel-stream">${body}</div>`});
+}
+
+function sectorHeatmapCard() {
+  const moduleData = (((intel().markets || {}).sector_heatmap) || {});
+  const items = moduleData.items || [];
+  const body = items.length ? `
+    <div class="sector-grid dense-sector-grid">
+      ${items.slice(0, 9).map((row) => {
+        const intensity = Number(row.intensity || 0);
+        let cls = "heat-flat";
+        if (row.band === "high") cls = "heat-pos-strong";
+        else if (row.band === "medium") cls = "heat-pos";
+        return `<div class="sector-cell ${cls}">
+          <div class="sector-ticker">${escapeHtml(row.name || "Sector")}</div>
+          <span class="sector-pct pos">${escapeHtml(String(row.hits || 0))}</span>
+          <span class="sector-name">${escapeHtml(String(intensity))}%</span>
+        </div>`;
+      }).join("")}
+    </div>
+  ` : unavailable("Sector heatmap", "No market-sector signals in accepted stories.");
+  return cardShell({title: "Sector heatmap", kicker: "equity sectors", status: isMockModule(moduleData) ? "mock" : "derived", size: "chart-card", mock: isMockModule(moduleData), body});
+}
+
+function buildMarketsBoard() {
+  const markets = intel().markets || {};
+  const cryptoModule = markets.crypto || {};
+  const fxModule = markets.fx || {};
+  const energyModule = markets.energy || {};
+  const metalsModule = markets.metals_materials || {};
+  const macroModule = markets.macro_movers || {};
+  const headlinesModule = markets.headlines || {};
+  const crypto = (cryptoModule.items || []).map((row) => ({
+    symbol: row.symbol,
+    value: row.price_usd == null ? "--" : `$${Number(row.price_usd).toLocaleString()}`,
+    detail: row.change_24h == null ? "" : `${row.change_24h >= 0 ? "+" : ""}${row.change_24h.toFixed(2)}% 24h`,
+  }));
+  const metals = (metalsModule.items || []).map((row) => ({
+    name: row.name,
+    value: row.value || `${displayValue(row.mentions)} mentions`,
+    detail: row.unit || "",
+  }));
+  const fg = markets.fear_greed || {};
+  const breadth = markets.breadth || {};
+  return [
+    storyBriefCard("markets", "Main market brief", "market signal"),
+    storyCards("markets", 1, 2),
+    topPulseCard({title: "Market pulse", kicker: "breadth", status: isMockModule(breadth) ? "mock" : "derived", value: breadth.label || "Balanced", detail: breadth.detail || "No market breadth available.", mock: isMockModule(breadth)}),
+    sectorHeatmapCard(),
+    cardShell({title: "Crypto tracker", kicker: "BTC / ETH / SOL", status: isMockModule(cryptoModule) ? "mock" : "live", size: "metric-card", mock: isMockModule(cryptoModule), body: `<div class="intel-mini-grid">${miniRows(crypto, {labelField: "symbol", emptyLabel: "Crypto tracker"})}</div>`}),
+    cardShell({title: "FX board", kicker: "currency watch", status: isMockModule(fxModule) ? "mock" : fxModule.available ? "live" : "gap", size: "metric-card", mock: isMockModule(fxModule), body: `<div class="intel-mini-grid">${miniRows(fxModule.items || [], {labelField: "pair", valueField: "rate", emptyLabel: "FX board"})}</div>`}),
+    cardShell({title: "Oil and energy", kicker: "energy desk", status: isMockModule(energyModule) ? "mock" : energyModule.available ? "live" : "gap", size: "metric-card", mock: isMockModule(energyModule), body: `<div class="intel-mini-grid">${miniRows(energyModule.items || [], {emptyLabel: "Energy prices"})}</div>`}),
+    cardShell({title: "Metals and materials", kicker: "materials tape", status: isMockModule(metalsModule) ? "mock" : "derived", size: "metric-card", mock: isMockModule(metalsModule), body: `<div class="intel-mini-grid">${miniRows(metals, {emptyLabel: "Metals/materials", emptyDetail: "No metals signals in accepted market stories."})}</div>`}),
+    topPulseCard({title: "Fear and greed", kicker: fg.mode === "fallback_proxy" ? "VIX proxy" : "sentiment", status: isMockModule(fg) ? "mock" : fg.available ? "live" : "gap", value: fg.value == null ? "--" : `${fg.value}/100`, detail: fg.label || "Unavailable", mock: isMockModule(fg)}),
+    cardShell({title: "Macro movers", kicker: "rates and bonds", status: isMockModule(macroModule) ? "mock" : macroModule.available ? "live" : "gap", size: "data-table", mock: isMockModule(macroModule), body: `<div class="intel-mini-grid">${miniRows(macroModule.items || [], {emptyLabel: "Macro movers"})}</div>`}),
+    sectionHeadlineStream("markets", headlinesModule.items || [], "Market headlines", isMockModule(headlinesModule)),
+    sourceUtilityCard("markets"),
+  ].join("");
+}
+
+function buildGeopoliticsBoard() {
+  const geo = intel().geopolitics || {};
+  const risk = geo.strategic_risk || {};
+  const debt = geo.national_debt_clock || {};
+  const instability = geo.country_instability || {};
+  const feed = geo.intel_feed || {};
+  const regional = geo.regional_risk || {};
+  const disasters = geo.disaster_cascade || {};
+  const escalation = geo.escalation_monitor || {};
+  const posture = geo.force_posture || {};
+  const sanctions = geo.sanctions_pressure || {};
+  return [
+    storyBriefCard("geopolitics", "Main geopolitical brief", "situation lead"),
+    storyCards("geopolitics", 1, 2),
+    topPulseCard({title: "Strategic risk", kicker: "overview", status: isMockModule(risk) ? "mock" : "composite", value: risk.label || "--", detail: risk.detail || "No risk detail available.", mock: isMockModule(risk)}),
+    cardShell({title: "Country instability", kicker: "ranked intensity", status: isMockModule(instability) ? "mock" : "derived", size: "data-table", mock: isMockModule(instability), body: `<div class="bar-list">${barRows(instability.items || [])}</div>`}),
+    cardShell({title: "Intel feed", kicker: "live tape", status: isMockModule(feed) ? "mock" : "derived", size: "list-stream", mock: isMockModule(feed), body: `<div class="intel-stream">${miniRows(feed.items || [], {labelField: "region", valueField: "headline", emptyLabel: "Intel feed"})}</div>`}),
+    cardShell({title: "National debt clock", kicker: debt.source || "provider", status: isMockModule(debt) ? "mock" : debt.available ? "live" : "gap", size: "metric-card", mock: isMockModule(debt), body: debt.available ? `<div class="module-callout"><strong>${escapeHtml(debt.display || "--")}</strong><span>${escapeHtml(debt.updated_at || "")}</span></div>` : unavailable("US debt clock", "FiscalData provider did not return a usable value.")}),
+    cardShell({title: "Regional risk", kicker: "theater map", status: isMockModule(regional) ? "mock" : "derived", size: "metric-card", mock: isMockModule(regional), body: `<div class="bar-list">${barRows(regional.items || [])}</div>`}),
+    cardShell({title: "Disaster cascade", kicker: "natural hazards", status: isMockModule(disasters) ? "mock" : disasters.available ? "live" : "quiet", size: "list-stream", mock: isMockModule(disasters), body: `<div class="intel-stream">${miniRows(disasters.items || [], {labelField: "type", valueField: "title", detailField: "time", emptyLabel: "No active events"})}</div>`}),
+    cardShell({title: "Escalation monitor", kicker: "regional cues", status: isMockModule(escalation) ? "mock" : "derived", size: "metric-card", mock: isMockModule(escalation), body: `<div class="intel-mini-grid">${miniRows(escalation.items || [], {emptyLabel: "Escalation monitor"})}</div>`}),
+    cardShell({title: "Force posture", kicker: "military activity", status: isMockModule(posture) ? "mock" : "derived", size: "metric-card", mock: isMockModule(posture), body: `<div class="intel-mini-grid">${miniRows(posture.items || [], {emptyLabel: "Force posture"})}</div>`}),
+    cardShell({title: "Economic warfare", kicker: "sanctions / trade", status: isMockModule(sanctions) ? "mock" : "derived", size: "metric-card", mock: isMockModule(sanctions), body: `<div class="intel-mini-grid">${miniRows(sanctions.items || [], {emptyLabel: "Economic pressure"})}</div>`}),
+    sourceUtilityCard("geopolitics"),
+  ].join("");
+}
+
+function buildTechnologyBoard() {
+  const tech = intel().technology_ai || {};
+  const metrics = metricsByLabel(tech.metrics || []);
+  const metricsMock = Boolean(tech.metrics_mock || (tech.metrics || []).some((row) => row && row.mock));
+  const lab = tech.lab_activity || {};
+  const infra = tech.infrastructure || {};
+  const adoption = tech.enterprise_adoption || {};
+  const deals = tech.funding_deals || {};
+  const headlines = tech.headlines || {};
+  const openSource = tech.open_source || {};
+  const tooling = tech.developer_tooling || {};
+  const storyCount = metrics["ai stories in brief"];
+  const sourceCount = metrics["unique ai sources"];
+  const pulseDetail = [
+    storyCount ? `${displayValue(storyCount.value)} stories` : "",
+    sourceCount ? `${displayValue(sourceCount.value)} sources` : "",
+  ].filter(Boolean).join(" / ") || "Accepted AI signal rollup";
+  return [
+    storyBriefCard("technology_ai", "Main AI brief", "lead development"),
+    storyCards("technology_ai", 1, 2),
+    topPulseCard({title: "AI pulse", kicker: "section rollup", status: metricsMock ? "mock" : "derived", value: sourceCount ? `${displayValue(sourceCount.value)} src` : "AI", detail: pulseDetail, mock: metricsMock}),
+    cardShell({title: "AI metrics summary", kicker: "pipeline rollup", status: metricsMock ? "mock" : "derived", size: "data-table", mock: metricsMock, body: `<div class="intel-mini-grid">${miniRows(tech.metrics || [], {labelField: "label", valueField: "value", emptyLabel: "AI metrics"})}</div>`}),
+    cardShell({title: "Model and lab activity", kicker: "frontier labs", status: isMockModule(lab) ? "mock" : "derived", size: "metric-card", mock: isMockModule(lab), body: `<div class="intel-mini-grid">${miniRows(lab.items || [], {emptyLabel: "Lab activity"})}</div>`}),
+    cardShell({title: "AI infrastructure", kicker: "chips / cloud", status: isMockModule(infra) ? "mock" : "derived", size: "metric-card", mock: isMockModule(infra), body: `<div class="intel-mini-grid">${miniRows(infra.items || [], {emptyLabel: "Infrastructure"})}</div>`}),
+    cardShell({title: "Enterprise adoption", kicker: "deployments", status: isMockModule(adoption) ? "mock" : "derived", size: "metric-card", mock: isMockModule(adoption), body: `<div class="intel-mini-grid">${miniRows(adoption.items || [], {emptyLabel: "Enterprise adoption"})}</div>`}),
+    cardShell({title: "Funding and deals", kicker: "capital flow", status: isMockModule(deals) ? "mock" : "derived", size: "metric-card", mock: isMockModule(deals), body: `<div class="intel-mini-grid">${miniRows(deals.items || [], {emptyLabel: "Funding/deals"})}</div>`}),
+    sectionHeadlineStream("technology_ai", headlines.items || [], "AI headlines stream", isMockModule(headlines)),
+    cardShell({title: "Open-source ecosystem", kicker: "OSS movement", status: isMockModule(openSource) ? "mock" : "derived", size: "list-stream", mock: isMockModule(openSource), body: `<div class="intel-stream">${miniRows(openSource.items || [], {emptyLabel: "Open-source"})}</div>`}),
+    cardShell({title: "Developer tooling", kicker: "agents / APIs", status: isMockModule(tooling) ? "mock" : "derived", size: "metric-card", mock: isMockModule(tooling), body: `<div class="intel-mini-grid">${miniRows(tooling.items || [], {emptyLabel: "Developer tooling"})}</div>`}),
+    sourceUtilityCard("technology_ai"),
+  ].join("");
+}
+
+function renderIntelBoard(category) {
+  const wall = document.getElementById("intelWall");
+  if (!wall) return;
+  const builders = {
+    markets: buildMarketsBoard,
+    geopolitics: buildGeopoliticsBoard,
+    technology_ai: buildTechnologyBoard,
+  };
+  const build = builders[category] || buildGeopoliticsBoard;
+  wall.dataset.category = category;
+  wall.innerHTML = build();
+  Array.from(wall.children).forEach((node, index) => {
+    node.style.setProperty("--card-index", index);
+  });
+}
+
+function renderCategory(category) {
+  if (!category) return;
+  const changed = currentCategory !== category;
+  currentCategory = category;
+  const kickerEl = document.getElementById("categoryKicker");
+  if (kickerEl) {
+    kickerEl.innerHTML = `<span class="status-dot status-live"></span>Intel wall`;
+  }
+  const titleEl = document.getElementById("categoryTitle");
+  if (titleEl) {
+    titleEl.textContent = categoryLabels[category] || "Morning signal";
+  }
+  if (changed) {
+    renderIntelBoard(category);
+  }
+}
+
+function highlightTopic(topic) {
+  const wall = document.getElementById("intelWall");
+  if (!wall || !topic) return;
   const categoryTopics = cueTopics().filter((cue) => cue.section === topic.section);
   const index = categoryTopics.findIndex((cue) => cue.key === topic.key);
   const counterEl = document.getElementById("storyCounter");
@@ -508,7 +631,16 @@ function activateClipping(topic) {
     counterEl.textContent =
       `${String(Math.max(index + 1, 1)).padStart(2, "0")} / ${String(Math.max(categoryTopics.length, 1)).padStart(2, "0")}`;
   }
-  renderSourceStack(topic.section);
+  wall.querySelectorAll("[data-topic-key]").forEach((node) => {
+    node.classList.toggle("is-topic-active", node.dataset.topicKey === topic.key);
+  });
+  const target = Array.from(wall.querySelectorAll("[data-topic-key]"))
+    .find((node) => node.dataset.topicKey === topic.key);
+  if (target) {
+    target.classList.add("is-pivoting");
+    window.setTimeout(() => target.classList.remove("is-pivoting"), 360);
+    target.scrollIntoView({behavior: "smooth", block: "center", inline: "nearest"});
+  }
 }
 
 function activateSection(key) {
@@ -532,7 +664,7 @@ function activateSection(key) {
 function activateTopic(topic) {
   lastTopicKey = topic.key;
   renderCategory(topic.section);
-  activateClipping(topic);
+  highlightTopic(topic);
 }
 
 function renderScript() {
@@ -563,6 +695,9 @@ function setupAudio() {
     musicStatus.textContent = "Music file loaded";
   } else {
     musicStatus.textContent = "No music file routed";
+  }
+  if (closingAudio && data.timeout_closing_audio_src) {
+    closingAudio.src = data.timeout_closing_audio_src;
   }
 
   if (!data.audio_src) {
@@ -774,7 +909,7 @@ function startClosingCountdown() {
   const value = document.getElementById("countdownValue");
   const message = document.getElementById("countdownMessage");
   const input = document.getElementById("followupInput");
-  let seconds = Math.max(Number(data.followup_timeout_seconds || 10), 1);
+  let seconds = Math.max(Number(data.followup_timeout_seconds || 0), 1);
   value.textContent = String(seconds);
   message.textContent = "Type one quick follow-up if you want me to check a thread before I close.";
   setFollowupDisabled(false);
@@ -784,12 +919,79 @@ function startClosingCountdown() {
     value.textContent = String(Math.max(seconds, 0));
     if (seconds <= 0) {
       window.clearInterval(countdownTimer);
-      followupComplete = true;
-      setFollowupDisabled(true);
-      message.textContent = `Nothing else queued. Have a great day, ${text(data.user_name, "Prasad")}.`;
-      completeSession("typed_followup_timeout");
+      runTimeoutClose();
     }
   }, 1000);
+}
+
+async function runTimeoutClose() {
+  if (finalCloseInProgress) return;
+  finalCloseInProgress = true;
+  followupComplete = true;
+  setFollowupDisabled(true);
+  await playTimeoutClosing();
+  completeSession("typed_followup_timeout");
+}
+
+async function playTimeoutClosing() {
+  const message = document.getElementById("countdownMessage");
+  const line = text(
+    data.timeout_closing_line,
+    `Okay, no further questions on the board. I am closing the mission now. Have a strong day, Captain.`
+  );
+  message.textContent = line;
+  let src = data.timeout_closing_audio_src || "";
+  if (!src) {
+    src = await fetchClosingAudio(line);
+  }
+  if (!closingAudio || !src) {
+    audioStatus.textContent = "Closing text displayed";
+    return;
+  }
+  try {
+    if (closingAudio.src !== src) {
+      closingAudio.src = src;
+    }
+    await waitForMediaReady(closingAudio, "closing");
+    closingAudio.currentTime = 0;
+    fadeMusicTo(Math.min(musicNarrationVolume(), 0.18), 400);
+    audioStatus.textContent = "Closing mission call";
+    await closingAudio.play();
+    const durationMs = Number.isFinite(closingAudio.duration)
+      ? Math.min(Math.max(closingAudio.duration * 1000 + 1800, 5000), 14000)
+      : 9000;
+    await waitForMediaEnd(closingAudio, durationMs);
+  } catch (error) {
+    audioStatus.textContent = "Closing text displayed";
+  }
+}
+
+async function fetchClosingAudio(fallbackLine) {
+  try {
+    const response = await fetch("/api/closing", {method: "POST"});
+    if (!response.ok) return "";
+    const payload = await response.json();
+    if (payload.answer) {
+      document.getElementById("countdownMessage").textContent = payload.answer || fallbackLine;
+    }
+    return payload.audio_src || "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function waitForMediaEnd(media, timeoutMs) {
+  return new Promise((resolve) => {
+    const timeout = window.setTimeout(() => { cleanup(); resolve(); }, timeoutMs);
+    function cleanup() {
+      window.clearTimeout(timeout);
+      media.removeEventListener("ended", onEnded);
+      media.removeEventListener("error", onEnded);
+    }
+    function onEnded() { cleanup(); resolve(); }
+    media.addEventListener("ended", onEnded, {once: true});
+    media.addEventListener("error", onEnded, {once: true});
+  });
 }
 
 function setupFollowupForm() {
@@ -844,12 +1046,21 @@ function completeSession(reason) {
   if (countdownTimer) window.clearInterval(countdownTimer);
   setFollowupDisabled(true);
   fadeMusicTo(0, 1200);
+  const payload = JSON.stringify({reason});
+  if (navigator.sendBeacon) {
+    try {
+      navigator.sendBeacon("/api/session/complete", new Blob([payload], {type: "application/json"}));
+    } catch (error) {
+      // Keep the fetch path below as the reliable fallback.
+    }
+  }
   fetch("/api/session/complete", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({reason}),
+    body: payload,
+    keepalive: true,
   }).catch(() => {});
-  window.setTimeout(() => { window.close(); }, 900);
+  window.setTimeout(() => { window.close(); }, 1400);
 }
 
 document.getElementById("greetingHeadline").textContent = firstSentence(
@@ -869,12 +1080,7 @@ renderWeather();
 renderWorldClock();
 renderScript();
 renderWarnings();
-renderSourceStack("geopolitics");
 renderCategory("geopolitics");
-renderSectorHeatmap();
-renderGeopoliticsPanels();
-renderMarketPanels();
-renderTechPanels();
 setupFollowupForm();
 setupAudio();
 updateActiveCue(0);

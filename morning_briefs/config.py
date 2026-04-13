@@ -103,6 +103,7 @@ class AppConfig:
     voice_effect_default_preset: str
     voice_effect_render_all: bool
     voice_effect_save_wavs: bool
+    use_fake_data_when_empty: bool
     narration_recent_limit: int
     sources_path: Path
     news_quality_path: Path
@@ -258,6 +259,9 @@ def load_config() -> AppConfig:
         ),
         voice_effect_save_wavs=_bool_env(
             "MORNING_BRIEFS_VOICE_EFFECT_SAVE_WAVS", True
+        ),
+        use_fake_data_when_empty=_bool_env(
+            "MORNING_BRIEFS_USE_FAKE_DATA_WHEN_EMPTY", True
         ),
         narration_recent_limit=_int_env("MORNING_BRIEFS_NARRATION_RECENT_LIMIT", 5),
         sources_path=CONFIG_DIR / "sources.json",

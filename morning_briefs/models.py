@@ -51,6 +51,7 @@ class WeatherReport:
     hourly: List[Dict[str, Any]] = field(default_factory=list)
     alerts: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
+    mock: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import quote
 
 import requests
 
@@ -13,8 +14,8 @@ from .models import SignalPackage
 class DashboardIntelCollector:
     """Collect compact, real-data intelligence widgets for dashboard side modules.
 
-    Each provider returns either real values or an explicit unavailable state.
-    No synthetic/random values are generated.
+    Each provider returns real values when available. When visual fallback mode is
+    enabled, empty modules receive deterministic mock values marked with mock=True.
     """
 
     def __init__(self, config: AppConfig) -> None:
@@ -35,11 +36,16 @@ class DashboardIntelCollector:
         warnings.extend(geo_warnings)
         warnings.extend(market_warnings)
         warnings.extend(tech_warnings)
-        return {
+        payload = {
             "geopolitics": geopolitics,
             "markets": markets,
             "technology_ai": technology,
-        }, warnings
+        }
+        if self.config.use_fake_data_when_empty and self._apply_mock_fallbacks(payload):
+            warnings.append(
+                "Mock fallback data filled empty dashboard modules; red dots mark synthetic cards."
+            )
+        return payload, warnings
 
     def _json(self, url: str, *, params: Optional[Dict[str, Any]] = None) -> Any:
         response = self.session.get(url, params=params, timeout=self.config.fetch_timeout)
@@ -307,6 +313,265 @@ class DashboardIntelCollector:
             "headlines": headlines,
         }, warnings
 
+    def _apply_mock_fallbacks(self, payload: Dict[str, Any]) -> bool:
+        changed = False
+        markets = payload.get("markets") or {}
+        market_fallbacks = {
+            "sector_heatmap": {
+                "available": True,
+                "mock": True,
+                "source": "Mock fallback",
+                "items": [
+                    {"name": "Technology", "intensity": 68, "hits": 4, "band": "high", "mock": True},
+                    {"name": "Industrials", "intensity": 54, "hits": 3, "band": "medium", "mock": True},
+                    {"name": "Financials", "intensity": 49, "hits": 2, "band": "medium", "mock": True},
+                    {"name": "Energy", "intensity": 45, "hits": 2, "band": "medium", "mock": True},
+                    {"name": "Healthcare", "intensity": 37, "hits": 1, "band": "medium", "mock": True},
+                    {"name": "Materials", "intensity": 31, "hits": 1, "band": "low", "mock": True},
+                ],
+            },
+            "crypto": {
+                "available": True,
+                "mock": True,
+                "source": "Mock fallback",
+                "items": [
+                    {"symbol": "BTC", "price_usd": 72400.0, "change_24h": 0.6, "mock": True},
+                    {"symbol": "ETH", "price_usd": 3550.0, "change_24h": 0.3, "mock": True},
+                    {"symbol": "SOL", "price_usd": 168.0, "change_24h": -0.4, "mock": True},
+                ],
+            },
+            "energy": {
+                "available": True,
+                "mock": True,
+                "source": "Mock fallback",
+                "items": [
+                    {"name": "Brent crude", "value": 83.2, "unit": "USD/bbl", "mock": True},
+                    {"name": "WTI crude", "value": 79.6, "unit": "USD/bbl", "mock": True},
+                    {"name": "Natural gas", "value": 3.15, "unit": "USD/MMBtu", "mock": True},
+                ],
+            },
+            "metals_materials": {
+                "available": True,
+                "mock": True,
+                "source": "Mock fallback",
+                "items": [
+                    {"name": "Gold", "value": "$2,365", "unit": "spot", "mock": True},
+                    {"name": "Silver", "value": "$28.40", "unit": "spot", "mock": True},
+                    {"name": "Copper", "value": "$4.52", "unit": "lb", "mock": True},
+                ],
+            },
+            "fx": {
+                "available": True,
+                "mock": True,
+                "source": "Mock fallback",
+                "items": [
+                    {"pair": "USD/EUR", "rate": 0.92, "mock": True},
+                    {"pair": "USD/GBP", "rate": 0.79, "mock": True},
+                    {"pair": "USD/INR", "rate": 83.4, "mock": True},
+                    {"pair": "USD/CNY", "rate": 7.21, "mock": True},
+                ],
+            },
+            "macro_movers": {
+                "available": True,
+                "mock": True,
+                "source": "Mock fallback",
+                "items": [
+                    {"name": "US 2Y", "value": "4.75%", "change": "steady", "mock": True},
+                    {"name": "US 10Y", "value": "4.28%", "change": "steady", "mock": True},
+                    {"name": "Dollar index", "value": "104.2", "change": "firm", "mock": True},
+                ],
+            },
+            "fear_greed": {
+                "available": True,
+                "mock": True,
+                "value": 56,
+                "label": "Neutral",
+                "source": "Mock fallback",
+                "mode": "mock",
+            },
+            "headlines": {
+                "mock": True,
+                "items": [
+                    {"source": "Mock tape", "headline": "Futures steady as sector leadership broadens", "mock": True},
+                    {"source": "Mock tape", "headline": "Energy desk watches Brent near the upper band", "mock": True},
+                    {"source": "Mock tape", "headline": "Crypto tone firm but not overheated", "mock": True},
+                ],
+            },
+        }
+        for key, fallback in market_fallbacks.items():
+            if self._module_needs_mock(markets.get(key)):
+                markets[key] = fallback
+                changed = True
+        breadth = markets.get("breadth") or {}
+        if str(breadth.get("label", "")).lower() == "unavailable":
+            markets["breadth"] = {
+                "label": "Balanced",
+                "detail": "Mock breadth proxy: advancers 52%, decliners 45%, unchanged 3%.",
+                "mock": True,
+            }
+            changed = True
+
+        geopolitics = payload.get("geopolitics") or {}
+        geo_fallbacks = {
+            "country_instability": {
+                "available": True,
+                "mock": True,
+                "source": "Mock fallback",
+                "items": [
+                    {"name": "Europe", "score": 42, "events": 2, "band": "medium", "mock": True},
+                    {"name": "MENA", "score": 46, "events": 2, "band": "medium", "mock": True},
+                    {"name": "Asia-Pacific", "score": 34, "events": 1, "band": "low", "mock": True},
+                ],
+            },
+            "escalation_monitor": {
+                "mock": True,
+                "items": [
+                    {"name": "Diplomatic channel", "value": "Stable", "mock": True},
+                    {"name": "Trade lanes", "value": "Watch", "mock": True},
+                ],
+            },
+            "force_posture": {
+                "mock": True,
+                "items": [
+                    {"name": "Naval movement", "value": "Quiet", "mock": True},
+                    {"name": "Exercises", "value": "Routine", "mock": True},
+                ],
+            },
+            "sanctions_pressure": {
+                "mock": True,
+                "items": [
+                    {"name": "Export controls", "value": "Watch", "mock": True},
+                    {"name": "Tariff posture", "value": "Steady", "mock": True},
+                ],
+            },
+            "intel_feed": {
+                "mock": True,
+                "items": [
+                    {"region": "Europe", "headline": "Diplomatic track remains steady", "mock": True},
+                    {"region": "MENA", "headline": "Energy route watch remains active", "mock": True},
+                    {"region": "Asia-Pacific", "headline": "Trade posture stable", "mock": True},
+                ],
+            },
+        }
+        for key, fallback in geo_fallbacks.items():
+            if self._module_needs_mock(geopolitics.get(key)):
+                geopolitics[key] = fallback
+                changed = True
+        risk = geopolitics.get("strategic_risk") or {}
+        if str(risk.get("label", "")).lower() in {"", "unavailable"}:
+            geopolitics["strategic_risk"] = {
+                "label": "Stable / 41",
+                "detail": "Mock risk proxy: moderate watch, no acute spike.",
+                "mock": True,
+            }
+            changed = True
+
+        technology = payload.get("technology_ai") or {}
+        metrics = technology.get("metrics") or []
+        metric_values = [metric.get("value") for metric in metrics if isinstance(metric, dict)]
+        if not metrics or not any(value for value in metric_values if isinstance(value, (int, float))):
+            technology["metrics"] = [
+                {
+                    "label": "AI stories in brief",
+                    "value": 4,
+                    "detail": "Mock accepted AI primary stories for visual test mode",
+                    "source": "Mock fallback",
+                    "mock": True,
+                },
+                {
+                    "label": "Unique AI sources",
+                    "value": 3,
+                    "detail": "Mock distinct sources represented in tech section",
+                    "source": "Mock fallback",
+                    "mock": True,
+                },
+                {
+                    "label": "Average signal score",
+                    "value": 7.4,
+                    "detail": "Mock extractor priority score",
+                    "source": "Mock fallback",
+                    "mock": True,
+                },
+                {
+                    "label": "Chip / infra-linked items",
+                    "value": 2,
+                    "detail": "Mock chips, GPU, compute, or cloud mentions",
+                    "source": "Mock fallback",
+                    "mock": True,
+                },
+            ]
+            technology["metrics_mock"] = True
+            changed = True
+        tech_fallbacks = {
+            "lab_activity": {
+                "mock": True,
+                "items": [
+                    {"name": "OpenAI", "value": "2 signals", "mock": True},
+                    {"name": "Anthropic", "value": "1 signal", "mock": True},
+                    {"name": "Google", "value": "1 signal", "mock": True},
+                ],
+            },
+            "infrastructure": {
+                "mock": True,
+                "items": [
+                    {"name": "GPU", "value": "2 signals", "mock": True},
+                    {"name": "Datacenter", "value": "1 signal", "mock": True},
+                ],
+            },
+            "enterprise_adoption": {
+                "mock": True,
+                "items": [
+                    {"name": "Enterprise", "value": "2 signals", "mock": True},
+                    {"name": "API platforms", "value": "1 signal", "mock": True},
+                ],
+            },
+            "funding_deals": {
+                "mock": True,
+                "items": [
+                    {"name": "Strategic investment", "value": "Watch", "mock": True},
+                    {"name": "M&A", "value": "Quiet", "mock": True},
+                ],
+            },
+            "open_source": {
+                "mock": True,
+                "items": [
+                    {"name": "Open models", "value": "2 signals", "mock": True},
+                    {"name": "Tooling", "value": "3 signals", "mock": True},
+                ],
+            },
+            "developer_tooling": {
+                "mock": True,
+                "items": [
+                    {"name": "Agents", "value": "2 signals", "mock": True},
+                    {"name": "Coding", "value": "1 signal", "mock": True},
+                ],
+            },
+            "headlines": {
+                "mock": True,
+                "items": [
+                    {"source": "Mock lab tape", "headline": "Enterprise agent rollout expands", "mock": True},
+                    {"source": "Mock lab tape", "headline": "Inference cost curve continues improving", "mock": True},
+                    {"source": "Mock lab tape", "headline": "Developer tooling momentum holds", "mock": True},
+                ],
+            },
+        }
+        for key, fallback in tech_fallbacks.items():
+            if self._module_needs_mock(technology.get(key)):
+                technology[key] = fallback
+                changed = True
+        return changed
+
+    def _module_needs_mock(self, module: Any) -> bool:
+        if not isinstance(module, dict):
+            return True
+        if module.get("mock"):
+            return False
+        if module.get("available") is False:
+            return True
+        if "items" in module and not module.get("items"):
+            return True
+        return False
+
     def _fx_tracker(self) -> Tuple[Dict[str, Any], List[str]]:
         warnings: List[str] = []
         out = {"available": False, "items": [], "source": "open.er-api.com"}
@@ -339,7 +604,40 @@ class DashboardIntelCollector:
                 continue
             if value is not None:
                 items.append({"name": name, "value": round(value, 2), "unit": unit})
-        return {"available": bool(items), "items": items, "source": "FRED"}, warnings
+        source = "FRED"
+        if not items:
+            yahoo_items, yahoo_warnings = self._energy_tracker_yahoo()
+            warnings.extend(yahoo_warnings)
+            if yahoo_items:
+                items = yahoo_items
+                source = "Yahoo Finance chart"
+        return {"available": bool(items), "items": items, "source": source}, warnings
+
+    def _energy_tracker_yahoo(self) -> Tuple[List[Dict[str, Any]], List[str]]:
+        warnings: List[str] = []
+        items: List[Dict[str, Any]] = []
+        for name, symbol, unit in [
+            ("WTI crude", "CL=F", "USD/bbl"),
+            ("Brent crude", "BZ=F", "USD/bbl"),
+            ("Natural gas", "NG=F", "USD/MMBtu"),
+        ]:
+            try:
+                payload = self._json(
+                    f"https://query1.finance.yahoo.com/v8/finance/chart/{quote(symbol, safe='')}",
+                    params={"range": "5d", "interval": "1d"},
+                )
+                result = (((payload or {}).get("chart") or {}).get("result") or [None])[0] or {}
+                meta = result.get("meta") or {}
+                value = meta.get("regularMarketPrice")
+                if value is None:
+                    values = (((result.get("indicators") or {}).get("quote") or [{}])[0]).get("close") or []
+                    values = [v for v in values if v is not None]
+                    value = values[-1] if values else None
+                if value is not None:
+                    items.append({"name": name, "value": round(float(value), 2), "unit": unit})
+            except Exception as exc:
+                warnings.append(f"Yahoo energy quote {symbol} unavailable: {exc}")
+        return items, warnings
 
     def _macro_movers(self) -> Tuple[Dict[str, Any], List[str]]:
         warnings: List[str] = []

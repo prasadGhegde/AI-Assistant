@@ -27,10 +27,17 @@ class ScriptWriter:
         signals: SignalPackage,
         generated_at: datetime,
         weather: Optional[WeatherReport] = None,
+        market_snapshot: Optional[Dict[str, object]] = None,
     ) -> Tuple[ScriptPackage, List[str]]:
         warnings: List[str] = []
         narration_plan = NarrationPlanner(self.config).select(generated_at)
-        markdown = self._write_with_model(signals, generated_at, weather, narration_plan)
+        markdown = self._write_with_model(
+            signals,
+            generated_at,
+            weather,
+            narration_plan,
+            market_snapshot,
+        )
         model_used = self.config.openai_writer_model if markdown else "heuristic"
         if markdown is not None and not self._model_script_is_usable(markdown):
             markdown = None
@@ -39,7 +46,13 @@ class ScriptWriter:
                 "OpenAI script writing produced an incomplete draft; used local fallback script."
             )
         if markdown is None:
-            markdown = self._fallback_script(signals, generated_at, weather, narration_plan)
+            markdown = self._fallback_script(
+                signals,
+                generated_at,
+                weather,
+                narration_plan,
+                market_snapshot,
+            )
             if self.config.openai_api_key:
                 if not any("incomplete draft" in warning for warning in warnings):
                     warnings.append("OpenAI script writing failed; used local fallback script.")
@@ -49,7 +62,7 @@ class ScriptWriter:
         markdown = self._reduce_repetition(markdown)
         markdown = self._append_sources(markdown, signals)
         sections = split_markdown_sections(markdown)
-        spoken_text = strip_markdown_for_speech(markdown)
+        spoken_text = dedupe_spoken_sentences(strip_markdown_for_speech(markdown))
         count = word_count(spoken_text)
         if count < 850 or count > 1150:
             warnings.append(
@@ -74,6 +87,7 @@ class ScriptWriter:
         generated_at: datetime,
         weather: Optional[WeatherReport],
         narration_plan: NarrationPlan,
+        market_snapshot: Optional[Dict[str, object]],
     ) -> Optional[str]:
         if not self.llm.available:
             return None
@@ -85,6 +99,7 @@ class ScriptWriter:
             "weather": weather.to_dict() if weather else None,
             "briefing_profile": profile,
             "narration_framework": narration_plan.to_dict(),
+            "market_snapshot": market_snapshot or {},
             "signals": signals.to_dict(),
         }
         return self.llm.text_response(
@@ -93,8 +108,10 @@ class ScriptWriter:
                 "not newsletter copy. Use only supplied source material. Avoid duplicate stories "
                 "across categories. Follow the product rules from the provided skills.md content. "
                 "Do not speak source timestamps, source-brand newsletter labels, or awkward raw "
-                "headline prefixes like 'The Download' or 'Stock Market Today'. Summarize those "
-                "stories in clean prose instead. Keep headings structural only and never speak them."
+                "headline prefixes like 'The Download' or 'Stock Market Today'. Never narrate a "
+                "news item as 'BBC says', 'Reuters reports', or any source-led headline recap. "
+                "Convert each article into signal, implication, and useful watch point in your own "
+                "clean debriefing language. Keep headings structural only and never speak them."
             ),
             user=(
                 "Write a Markdown script with these headings only: # Morning Brief, ## Greeting, "
@@ -106,8 +123,12 @@ class ScriptWriter:
                 f"Write for {self.config.user_name}. Keep the tone human, useful, and work-morning focused. "
                 "Do not use bullets in spoken sections. Keep source URLs out of spoken sections. "
                 "Do not say or restate source timestamps. Do not repeat awkward raw headlines when a clean paraphrase is better. "
-                "Use the Weather section for a short practical read on current conditions and one useful carry or wear cue. "
+                "The Greeting section is only the mission-style greeting and one warm opening line; do not put news, weather, the date, or what-matters content there. "
+                "Use the Weather section for a short practical field-condition read and one useful carry or wear cue. "
                 "Use the news sections for clear prose and natural implications, without labels like 'Why it matters today'. "
+                "In news sections, do not lead with source names and do not read article titles verbatim unless the title itself is the only factual signal. "
+                "In the Stock market section, if market_snapshot includes BTC and crude oil values, speak both naturally with a small expressive read such as steady, holding firm, or slightly under pressure. "
+                "Sound like an intelligence officer briefing the meaning of the material, with subtle rhythm and restrained personality. "
                 "Do not repeat the same implication wording across sections; each section must add new information.\n\n"
                 "skills.md context:\n"
                 + compact_for_prompt(skills_text, max_chars=10000)
@@ -124,17 +145,14 @@ class ScriptWriter:
         generated_at: datetime,
         weather: Optional[WeatherReport],
         narration_plan: NarrationPlan,
+        market_snapshot: Optional[Dict[str, object]] = None,
     ) -> str:
         date = generated_at.strftime("%B %-d, %Y")
         parts = [
             f"# Morning Brief - {date}",
             "",
             "## Greeting",
-            (
-                f"{narration_plan.opening_line} {narration_plan.intro_line} It is {date}, and the "
-                f"main task is to stay close to the strongest developments without drowning in filler. "
-                f"{signals.what_matters_today}"
-            ),
+            f"{narration_plan.opening_line} {narration_plan.intro_line}",
             "",
             "## Weather",
             f"{narration_plan.weather_transition} {self._fallback_weather(weather)}",
@@ -143,7 +161,7 @@ class ScriptWriter:
             parts.extend(["", f"## {SECTION_TITLES[category]}"])
             parts.append(
                 f"{self._transition_for_category(category, narration_plan)} "
-                f"{self._fallback_section(category, signals.sections.get(category, []))}"
+                f"{self._fallback_section(category, signals.sections.get(category, []), market_snapshot)}"
             )
         parts.extend(
             [
@@ -182,11 +200,21 @@ class ScriptWriter:
         wear = ", ".join(weather.wear) if weather.wear else "comfortable layers"
         return (
             f"In {weather.location_name}, it is {temp}{feels}, with {weather.conditions}. "
-            f"Carry {carry}, wear {wear}, and {weather.advisory.lower()} That is enough weather for now; "
-            "let us move into the main signal."
+            f"Carry {carry} and wear {wear}.{self._weather_caution(weather)}"
         )
 
-    def _fallback_section(self, category: str, notes: List[ExtractedNote]) -> str:
+    def _weather_caution(self, weather: WeatherReport) -> str:
+        advisory = clean_text(weather.advisory)
+        if "gust" in advisory.lower():
+            return " Watch the gusts; secure loose layers before you step out."
+        return ""
+
+    def _fallback_section(
+        self,
+        category: str,
+        notes: List[ExtractedNote],
+        market_snapshot: Optional[Dict[str, object]] = None,
+    ) -> str:
         if not notes:
             return (
                 "The feeds did not produce enough fresh, high-confidence items for this section. "
@@ -195,29 +223,92 @@ class ScriptWriter:
             )
         lead = notes[0]
         sentences = [
-            (
-                f"From {lead.source_name}, the clearest thread is this: {self._spoken_summary(lead)}"
-            )
+            f"The clean signal on the board is this: {self._spoken_summary(lead)}"
         ]
-        sentences.append(self._category_context(category))
-        follow_up_labels = ["Second signal", "Third signal"]
+        lead_implication = self._clean_implication(lead.why_it_matters)
+        if lead_implication:
+            sentences.append(lead_implication)
+        if category == "markets":
+            market_line = self._market_snapshot_line(market_snapshot)
+            if market_line:
+                sentences.append(market_line)
+        follow_up_labels = {
+            "geopolitics": ["A second movement to keep in view", "The third marker"],
+            "technology_ai": ["Another useful shift", "One more signal from the tech stack"],
+            "markets": ["The next market tell", "The third read on the tape"],
+        }.get(category, ["The next signal", "The third signal"])
         for idx, note in enumerate(notes[1:3]):
-            sentences.append(f"{follow_up_labels[idx]}: {self._spoken_summary(note)}")
-        sentences.append(self._clean_implication(lead.why_it_matters))
+            implication = self._clean_implication(note.why_it_matters)
+            detail = self._spoken_summary(note)
+            if implication:
+                sentences.append(f"{follow_up_labels[idx]} is {detail} {implication}")
+            else:
+                sentences.append(f"{follow_up_labels[idx]} is {detail}")
+        sentences.append(self._category_context(category))
         return " ".join(clean_text(sentence) for sentence in sentences)
+
+    def _market_snapshot_line(self, market_snapshot: Optional[Dict[str, object]]) -> str:
+        if not market_snapshot:
+            return ""
+        crypto = (market_snapshot.get("crypto") or {}) if isinstance(market_snapshot, dict) else {}
+        energy = (market_snapshot.get("energy") or {}) if isinstance(market_snapshot, dict) else {}
+        btc = None
+        if not crypto.get("mock"):
+            for row in crypto.get("items") or []:
+                if str(row.get("symbol", "")).upper() == "BTC":
+                    btc = row
+                    break
+        oil = None
+        if not energy.get("mock"):
+            for preferred in ("Brent", "WTI"):
+                oil = next(
+                    (
+                        row for row in (energy.get("items") or [])
+                        if preferred.lower() in str(row.get("name", "")).lower()
+                    ),
+                    None,
+                )
+                if oil:
+                    break
+        parts = []
+        if btc and btc.get("price_usd") is not None:
+            price = self._spoken_market_price(float(btc["price_usd"]), round_to=100)
+            tone = self._market_tone(btc.get("change_24h"))
+            parts.append(f"Bitcoin is holding around {price} dollars, {tone}.")
+        if oil and oil.get("value") is not None:
+            value = float(oil["value"])
+            name = "Brent crude" if "brent" in str(oil.get("name", "")).lower() else "WTI crude"
+            tone = "still elevated" if value >= 80 else "steady" if value >= 70 else "calmer on the board"
+            parts.append(f"{name} is trading near {value:.0f} dollars a barrel, {tone}.")
+        return " ".join(parts)
+
+    def _spoken_market_price(self, value: float, *, round_to: int) -> str:
+        rounded = int(round(value / round_to) * round_to)
+        return f"{rounded:,}"
+
+    def _market_tone(self, change: object) -> str:
+        try:
+            delta = float(change)
+        except (TypeError, ValueError):
+            return "steady"
+        if delta >= 1.0:
+            return "holding firm"
+        if delta <= -1.0:
+            return "slightly under pressure"
+        return "steady"
 
     def _clean_implication(self, text: str) -> str:
         text = clean_text(text)
         text = re.sub(r"^(why (it|this) matters( today)?\s*:\s*)", "", text, flags=re.I)
         text = re.sub(r"^(this is important because\s*)", "", text, flags=re.I)
         if not text:
-            return "The practical implication is to watch the follow-through, not just the headline."
+            return ""
         return text[0].upper() + text[1:]
 
     def _spoken_summary(self, note: ExtractedNote) -> str:
         preferred = clean_text(note.note or note.excerpt, 320)
         if preferred:
-            return preferred
+            return self._remove_source_led_opening(preferred)
         headline = clean_text(note.headline, 220)
         headline = re.sub(r"\s*\((?:live coverage|live updates?)\)\s*$", "", headline, flags=re.I)
         headline = re.sub(r"^(the download|stock market today)\s*:\s*", "", headline, flags=re.I)
@@ -225,27 +316,36 @@ class ScriptWriter:
             prefix, suffix = headline.split(":", 1)
             if len(prefix.strip()) <= 24 and suffix.strip():
                 headline = suffix.strip()
-        return headline
+        return self._remove_source_led_opening(headline)
+
+    def _remove_source_led_opening(self, text: str) -> str:
+        text = clean_text(text)
+        source_pattern = (
+            r"^(?:the\s+)?(?:bbc|reuters|ap|associated press|bloomberg|cnbc|"
+            r"financial times|the verge|openai|mit technology review|wall street journal|"
+            r"the wall street journal)\s+"
+            r"(?:says|said|reports|reported|writes|wrote|notes|noted|according to)\s+(?:that\s+)?"
+        )
+        text = re.sub(source_pattern, "", text, flags=re.I)
+        text = re.sub(r"^(?:headline|story|report)\s*:\s*", "", text, flags=re.I)
+        return text[:1].upper() + text[1:] if text else text
 
     def _category_context(self, category: str) -> str:
         context = {
             "geopolitics": (
-                "The workday read is whether this remains a contained political story or starts "
-                "touching trade routes, energy prices, sanctions, or alliance posture. Listen for "
-                "official confirmation, not just anonymous positioning, and watch whether regional "
-                "actors respond before markets have fully settled."
+                "The operational read is whether this stays contained or starts touching trade "
+                "routes, energy, sanctions, or alliance posture. Watch the official moves, not the "
+                "loudest commentary; that is where the map usually tells the truth."
             ),
             "technology_ai": (
-                "The practical question is whether this changes near-term buying, product planning, "
-                "security review, or compute availability. In AI, a model story can become a platform "
-                "story quickly, and a policy story can become a deployment constraint before teams "
-                "have adjusted their road maps."
+                "The useful question is whether this changes buying, product planning, security "
+                "review, or compute access. In AI, a lab note can become a platform shift quickly; "
+                "small spark, large blast radius."
             ),
             "markets": (
-                "The market lens is whether the story affects broad risk appetite, rates expectations, "
-                "or just a narrow group of names. Early headlines can move futures, but the durable "
-                "signal usually comes from breadth, sector leadership, and whether the bond market "
-                "confirms the stock move."
+                "The market read is whether this affects broad risk appetite, rates expectations, "
+                "or just a narrow pocket of names. Early tape can shout; breadth and rates tell us "
+                "whether the shout has legs."
             ),
         }
         return context.get(
@@ -325,6 +425,26 @@ def strip_markdown_for_speech(markdown: str) -> str:
     return clean_text(" ".join(lines))
 
 
+def dedupe_spoken_sentences(text: str) -> str:
+    """Remove accidental repeated spoken sentences immediately before TTS."""
+    sentences = re.split(r"(?<=[.!?])\s+", clean_text(text))
+    out: List[str] = []
+    seen = set()
+    previous = ""
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        normalized = re.sub(r"[^a-z0-9]+", " ", sentence.lower()).strip()
+        if normalized and (normalized == previous or normalized in seen):
+            continue
+        out.append(sentence)
+        if normalized:
+            seen.add(normalized)
+            previous = normalized
+    return clean_text(" ".join(out))
+
+
 def split_markdown_sections(markdown: str) -> Dict[str, str]:
     sections: Dict[str, List[str]] = {}
     current_key = "title"
@@ -359,5 +479,3 @@ def _heading_key(value: str) -> str:
         "source links": "source_links",
     }
     return mapping.get(normalized, normalized.replace(" ", "_"))
-
-

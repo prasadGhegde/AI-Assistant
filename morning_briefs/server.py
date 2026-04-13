@@ -62,7 +62,7 @@ def create_app(config: AppConfig, session_state: Optional[SessionState] = None):
 
     @app.post("/api/closing")
     def closing():
-        line = f"I will assume there is nothing else for now. Have a great day, {config.user_name}."
+        line = "Okay, no further questions on the board. I am closing the mission call now. Have a strong day, Captain."
         audio_src, warnings = _synthesize_session_clip(config, line, "closing")
         return jsonify({"answer": line, "audio_src": audio_src, "warnings": warnings})
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -74,18 +75,24 @@ def run_once(
     save_json(weather_path, weather.to_dict())
     save_json(latest_weather_path, weather.to_dict())
 
-    script, script_warnings = ScriptWriter(config).write(signals, generated_at, weather)
+    intel_modules, intel_warnings = DashboardIntelCollector(config).collect(signals)
+    warnings.extend(intel_warnings)
+
+    script, script_warnings = ScriptWriter(config).write(
+        signals,
+        generated_at,
+        weather,
+        market_snapshot=intel_modules.get("markets", {}),
+    )
     warnings.extend(script_warnings)
     script_path = config.scripts_dir / f"briefing_{stamp}.md"
     latest_script_path = config.scripts_dir / "latest.md"
     save_text(script_path, script.markdown)
     save_text(latest_script_path, script.markdown)
 
-    intel_modules, intel_warnings = DashboardIntelCollector(config).collect(signals)
-    warnings.extend(intel_warnings)
-
     audio_path = None
     latest_audio_path = None
+    timeout_closing_audio_path = None
     voice_result: Optional[VoiceRenderResult] = None
     voice_final_paths: Dict[str, str] = {}
     if not skip_tts:
@@ -128,6 +135,14 @@ def run_once(
 
         copied = copy_latest(audio_path, config.audio_dir / "latest.mp3")
         latest_audio_path = copied if copied else None
+        timeout_line = str(script.narration_plan.get("timeout_closing_line", "")).strip()
+        if timeout_line:
+            timeout_closing_audio_path, closing_warnings = _render_timeout_closing_audio(
+                config=config,
+                line=timeout_line,
+                stamp=stamp,
+            )
+            warnings.extend(closing_warnings)
     else:
         warnings.append("TTS skipped by command-line flag.")
 
@@ -140,6 +155,7 @@ def run_once(
         intel=intel_modules,
         generated_at=generated_at,
         audio_path=latest_audio_path,
+        timeout_closing_audio_path=timeout_closing_audio_path,
         output_path=dashboard_path,
     )
     DashboardRenderer(config).render(
@@ -149,6 +165,7 @@ def run_once(
         intel=intel_modules,
         generated_at=generated_at,
         audio_path=latest_audio_path,
+        timeout_closing_audio_path=timeout_closing_audio_path,
         output_path=latest_dashboard_path,
     )
 
@@ -232,6 +249,7 @@ def run_once(
         warnings=warnings,
         voice_result=voice_result,
         voice_final_paths=voice_final_paths,
+        timeout_closing_audio_path=timeout_closing_audio_path,
     )
     warnings.append(f"Diagnostics written to {diagnostics}")
 
@@ -253,6 +271,40 @@ def run_once(
     )
     save_json(config.output_dir / "latest_result.json", result.to_dict())
     return result
+
+
+def _render_timeout_closing_audio(
+    *,
+    config: AppConfig,
+    line: str,
+    stamp: str,
+) -> tuple[Optional[Path], List[str]]:
+    warnings: List[str] = []
+    session_dir = config.audio_dir / "session"
+    ensure_dirs([session_dir])
+    clean_path = session_dir / f"closing_timeout_{stamp}_clean.mp3"
+    audio_path, tts_warnings = SpeechSynthesizer(config).synthesize(line, clean_path)
+    warnings.extend(tts_warnings)
+    if not audio_path:
+        return None, warnings
+
+    final_path = audio_path
+    if config.voice_effect_enabled:
+        effect_config = replace(
+            config,
+            voice_effect_render_all=False,
+            voice_effect_save_wavs=False,
+        )
+        voice_result, voice_warnings = VoiceEffectProcessor(effect_config).render_variants(
+            clean_tts_path=audio_path,
+            output_stem=session_dir / f"closing_timeout_{stamp}",
+        )
+        warnings.extend(voice_warnings)
+        final_path = voice_result.default_path
+
+    latest_path = copy_latest(final_path, session_dir / "closing_timeout_latest.mp3")
+    warnings.append(f"Timeout closing audio saved: {latest_path or final_path}")
+    return latest_path or final_path, warnings
 
 
 def _browser_session_timeout(word_count: int, config: AppConfig) -> float:
@@ -302,6 +354,7 @@ def _write_run_diagnostics(
     warnings: List[str],
     voice_result: Optional[VoiceRenderResult],
     voice_final_paths: Dict[str, str],
+    timeout_closing_audio_path: Optional[Path],
 ) -> str:
     categories = ("geopolitics", "technology_ai", "markets")
     raw_counts = {
@@ -340,6 +393,9 @@ def _write_run_diagnostics(
             for key, path in (voice_result.variant_paths if voice_result else {}).items()
         },
         "voice_final_paths": voice_final_paths,
+        "timeout_closing_audio_path": (
+            str(timeout_closing_audio_path) if timeout_closing_audio_path else None
+        ),
         "warnings": warnings,
     }
     diagnostics_path = config.log_dir / f"briefing_{stamp}_diagnostics.json"

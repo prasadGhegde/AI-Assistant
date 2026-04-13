@@ -20,6 +20,7 @@ PHRASE_KEYS = [
     "market_transitions",
     "closings",
     "final_questions",
+    "timeout_closings",
 ]
 
 
@@ -35,6 +36,7 @@ class NarrationPlan:
     market_transition: str
     closing: str
     final_question: str
+    timeout_closing: str
 
     @property
     def opening_line(self) -> str:
@@ -44,10 +46,15 @@ class NarrationPlan:
     def closing_line(self) -> str:
         return f"{self.closing} {self.final_question}"
 
+    @property
+    def timeout_closing_line(self) -> str:
+        return self.timeout_closing.format(operation_name=self.operation_name)
+
     def to_dict(self) -> Dict[str, str]:
         payload = asdict(self)
         payload["opening_line"] = self.opening_line
         payload["closing_line"] = self.closing_line
+        payload["timeout_closing_line"] = self.timeout_closing_line
         return payload
 
 
@@ -86,6 +93,7 @@ class NarrationPlanner:
             market_transition=chosen["market_transitions"],
             closing=chosen["closings"],
             final_question=chosen["final_questions"],
+            timeout_closing=chosen["timeout_closings"],
         )
         if persist:
             self.record(plan, generated_at)
@@ -168,5 +176,6 @@ class NarrationPlanner:
             "market_transitions": "market_transition",
             "closings": "closing",
             "final_questions": "final_question",
+            "timeout_closings": "timeout_closing",
         }
         return mapping[bank_key]

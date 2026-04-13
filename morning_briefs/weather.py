@@ -141,6 +141,35 @@ class WeatherService:
         )
 
     def _fallback_report(self, warnings: List[str]) -> WeatherReport:
+        if self.config.use_fake_data_when_empty:
+            return WeatherReport(
+                location_name=self.config.weather_location_name,
+                latitude=self.config.weather_latitude,
+                longitude=self.config.weather_longitude,
+                observed_at=datetime.now(timezone.utc).isoformat(),
+                temperature=12,
+                apparent_temperature=10,
+                temperature_unit="°C" if "celsius" in self.config.weather_temperature_unit.lower() else self.config.weather_temperature_unit,
+                conditions="partly cloudy",
+                weather_code=2,
+                wind_speed=14,
+                wind_gusts=24,
+                wind_unit=self.config.weather_wind_speed_unit,
+                precipitation_probability=20,
+                cloud_cover=55,
+                carry=["sunglasses"],
+                wear=["comfortable layers"],
+                advisory="Partly cloudy and mild. Carry sunglasses and wear comfortable layers.",
+                warnings=warnings,
+                hourly=[
+                    {"time": "08:00", "temperature": 12, "precipitation_probability": 15, "weather_code": 2},
+                    {"time": "11:00", "temperature": 15, "precipitation_probability": 10, "weather_code": 2},
+                    {"time": "14:00", "temperature": 17, "precipitation_probability": 20, "weather_code": 3},
+                    {"time": "17:00", "temperature": 15, "precipitation_probability": 25, "weather_code": 3},
+                ],
+                alerts=["No active weather alerts"],
+                mock=True,
+            )
         return WeatherReport(
             location_name=self.config.weather_location_name,
             latitude=self.config.weather_latitude,
