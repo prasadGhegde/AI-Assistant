@@ -55,6 +55,7 @@ class WeatherService:
                 ]
             ),
             "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+            "hourly": "temperature_2m,precipitation_probability,weather_code",
             "temperature_unit": self.config.weather_temperature_unit,
             "wind_speed_unit": self.config.weather_wind_speed_unit,
             "forecast_days": 1,
@@ -78,6 +79,7 @@ class WeatherService:
         current = payload.get("current") or {}
         current_units = payload.get("current_units") or {}
         daily = payload.get("daily") or {}
+        hourly = payload.get("hourly") or {}
         code = current.get("weather_code")
         condition = WEATHER_CODES.get(code, "mixed conditions")
         precipitation_probability = _first_int(
@@ -101,6 +103,14 @@ class WeatherService:
             precipitation_probability=precipitation_probability,
             cloud_cover=cloud_cover,
         )
+        hourly_rows = self._hourly_preview(hourly)
+        alerts = self._alerts(
+            condition=condition,
+            precipitation_probability=precipitation_probability,
+            wind_gusts=wind_gusts,
+            wind_unit=current_units.get("wind_speed_10m")
+            or self.config.weather_wind_speed_unit,
+        )
         observed_at = str(current.get("time") or datetime.now(timezone.utc).isoformat())
         return WeatherReport(
             location_name=self.config.weather_location_name,
@@ -123,6 +133,8 @@ class WeatherService:
             ),
             precipitation_probability=precipitation_probability,
             cloud_cover=cloud_cover,
+            hourly=hourly_rows,
+            alerts=alerts,
             carry=carry,
             wear=wear,
             advisory=advisory,
@@ -148,7 +160,48 @@ class WeatherService:
             wear=["dress in adaptable layers"],
             advisory="Weather data is unavailable, so use a quick local check before you leave.",
             warnings=warnings,
+            hourly=[],
+            alerts=[],
         )
+
+    def _hourly_preview(self, hourly: Dict[str, object]) -> List[Dict[str, object]]:
+        times = hourly.get("time") if isinstance(hourly.get("time"), list) else []
+        temps = hourly.get("temperature_2m") if isinstance(hourly.get("temperature_2m"), list) else []
+        precip = hourly.get("precipitation_probability") if isinstance(hourly.get("precipitation_probability"), list) else []
+        rows: List[Dict[str, object]] = []
+        for idx in range(min(len(times), len(temps), 24)):
+            hour_label = "--"
+            try:
+                hour_label = str(times[idx])[11:16]
+            except Exception:
+                hour_label = str(times[idx])
+            rows.append(
+                {
+                    "time": hour_label,
+                    "temperature": _number(temps[idx]),
+                    "precipitation_probability": _int(precip[idx]) if idx < len(precip) else None,
+                }
+            )
+        return rows[:12]
+
+    def _alerts(
+        self,
+        *,
+        condition: str,
+        precipitation_probability: Optional[int],
+        wind_gusts: Optional[float],
+        wind_unit: str,
+    ) -> List[str]:
+        alerts: List[str] = []
+        cond = condition.lower()
+        if "thunder" in cond or "hail" in cond:
+            alerts.append("Thunderstorm risk in current forecast.")
+        if precipitation_probability is not None and precipitation_probability >= 70:
+            alerts.append(f"High rain probability ({precipitation_probability}%).")
+        gust_kmh = _to_kmh(wind_gusts, wind_unit)
+        if gust_kmh is not None and gust_kmh >= 45:
+            alerts.append("Strong gusts expected; secure loose items.")
+        return alerts
 
 
 def weather_guidance(

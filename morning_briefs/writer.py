@@ -46,6 +46,7 @@ class ScriptWriter:
             else:
                 warnings.append("OPENAI_API_KEY not set; used local fallback script.")
 
+        markdown = self._reduce_repetition(markdown)
         markdown = self._append_sources(markdown, signals)
         sections = split_markdown_sections(markdown)
         spoken_text = strip_markdown_for_speech(markdown)
@@ -97,17 +98,17 @@ class ScriptWriter:
             ),
             user=(
                 "Write a Markdown script with these headings only: # Morning Brief, ## Greeting, "
-                "## Weather, ## Geopolitics, ## Technology and AI, ## Stock market, ## Watch list for today, "
+                "## Weather, ## Geopolitics, ## Technology and AI, ## Stock market, "
                 "## Closing question. Use narration_framework.opening_line in Greeting, narration_framework.weather_transition at the start of Weather, "
                 "narration_framework.geopolitics_transition at the start of Geopolitics, narration_framework.technology_transition at the start of Technology and AI, "
-                "narration_framework.market_transition at the start of Stock market, narration_framework.watchlist_intro at the start of Watch list for today, "
+                "narration_framework.market_transition at the start of Stock market, "
                 "and narration_framework.closing_line in Closing question. "
                 f"Write for {self.config.user_name}. Keep the tone human, useful, and work-morning focused. "
                 "Do not use bullets in spoken sections. Keep source URLs out of spoken sections. "
                 "Do not say or restate source timestamps. Do not repeat awkward raw headlines when a clean paraphrase is better. "
                 "Use the Weather section for a short practical read on current conditions and one useful carry or wear cue. "
                 "Use the news sections for clear prose and natural implications, without labels like 'Why it matters today'. "
-                "Use the Watch list for concrete threads to revisit later today, not a second recap.\n\n"
+                "Do not repeat the same implication wording across sections; each section must add new information.\n\n"
                 "skills.md context:\n"
                 + compact_for_prompt(skills_text, max_chars=10000)
                 + "\n\n"
@@ -146,9 +147,6 @@ class ScriptWriter:
             )
         parts.extend(
             [
-                "",
-                "## Watch list for today",
-                f"{narration_plan.watchlist_intro} {self._fallback_watchlist(signals)}",
                 "",
                 "## Closing question",
                 narration_plan.closing_line,
@@ -202,10 +200,9 @@ class ScriptWriter:
             )
         ]
         sentences.append(self._category_context(category))
-        for note in notes[1:4]:
-            sentences.append(
-                f"Also worth tracking: {self._spoken_summary(note)}"
-            )
+        follow_up_labels = ["Second signal", "Third signal"]
+        for idx, note in enumerate(notes[1:3]):
+            sentences.append(f"{follow_up_labels[idx]}: {self._spoken_summary(note)}")
         sentences.append(self._clean_implication(lead.why_it_matters))
         return " ".join(clean_text(sentence) for sentence in sentences)
 
@@ -256,20 +253,6 @@ class ScriptWriter:
             "The useful read is the follow-through, not the first headline.",
         )
 
-    def _fallback_watchlist(self, signals: SignalPackage) -> str:
-        if not signals.watchlist:
-            return (
-                "For the watch list, keep an eye on source updates, market-open reaction, "
-                "and whether any single story starts spilling into another category. The most "
-                "important move may be the follow-through, not the first headline."
-            )
-        watch = " ".join(signals.watchlist[:3])
-        return (
-            f"Keep these threads open: {watch} Check whether fresh reporting "
-            "confirms the early read, whether markets price it in, and whether a policy or platform "
-            "response changes the story by midday."
-        )
-
     def _model_script_is_usable(self, markdown: str) -> bool:
         required_headings = [
             "## Greeting",
@@ -277,7 +260,6 @@ class ScriptWriter:
             "## Geopolitics",
             "## Technology and AI",
             "## Stock market",
-            "## Watch list for today",
             "## Closing question",
         ]
         if any(heading not in markdown for heading in required_headings):
@@ -290,6 +272,31 @@ class ScriptWriter:
         if not skills_path.exists():
             return ""
         return skills_path.read_text(encoding="utf-8")
+
+    def _reduce_repetition(self, markdown: str) -> str:
+        lines = markdown.splitlines()
+        out: List[str] = []
+        seen_normalized = set()
+        for line in lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                out.append(line)
+                continue
+            sentences = re.split(r"(?<=[.!?])\s+", stripped)
+            kept: List[str] = []
+            for sentence in sentences:
+                normalized = re.sub(r"[^a-z0-9 ]+", "", sentence.lower()).strip()
+                if len(normalized) < 18:
+                    kept.append(sentence)
+                    continue
+                if normalized in seen_normalized:
+                    continue
+                seen_normalized.add(normalized)
+                kept.append(sentence)
+            reduced = " ".join(kept).strip()
+            if reduced:
+                out.append(reduced)
+        return "\n".join(out).strip()
 
     def _append_sources(self, markdown: str, signals: SignalPackage) -> str:
         lines = [markdown.strip(), "", "## Source links"]
@@ -348,7 +355,6 @@ def _heading_key(value: str) -> str:
         "geopolitics": "geopolitics",
         "technology and ai": "technology_ai",
         "stock market": "markets",
-        "watch list for today": "watchlist",
         "closing question": "closing_question",
         "source links": "source_links",
     }

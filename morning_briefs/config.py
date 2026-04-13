@@ -150,7 +150,7 @@ def load_config() -> AppConfig:
     if force_ryan_voice and "ryan" not in tts_instructions.lower():
         tts_instructions = (
             "Use the Ryan system voice when available. Keep Ryan consistent for "
-            "greeting, weather, news, watch list, and the spoken closing question. "
+            "greeting, weather, news, and the spoken closing question. "
             + tts_instructions
         )
     return AppConfig(

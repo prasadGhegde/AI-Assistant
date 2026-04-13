@@ -37,13 +37,6 @@
       "required_close": "Close with the practical implication naturally, without a label."
     },
     {
-      "id": "watchlist",
-      "label": "Watch list for today",
-      "target_seconds": 45,
-      "target_words": [95, 125],
-      "required_close": "Turn the briefing into a few concrete threads to revisit; do not recap the whole briefing."
-    },
-    {
       "id": "closing_question",
       "label": "Closing question",
       "target_seconds": 4,

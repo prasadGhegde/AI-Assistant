@@ -12,8 +12,8 @@ from .utils import clean_text, compact_for_prompt, normalize_story_key
 
 
 SECTION_LIMITS = {
-    "geopolitics": 5,
-    "technology_ai": 5,
+    "geopolitics": 3,
+    "technology_ai": 3,
     "markets": 3,
 }
 
@@ -30,7 +30,6 @@ class SignalExtractor:
         warnings: List[str] = []
         sections = self._heuristic_sections(raw_items)
         what_matters_today = self._heuristic_what_matters(sections)
-        watchlist = self._heuristic_watchlist(sections)
         market_movers = self._market_movers(raw_items)
 
         package = SignalPackage(
@@ -39,7 +38,6 @@ class SignalExtractor:
             what_matters_today=what_matters_today,
             sections=sections,
             market_movers=market_movers,
-            watchlist=watchlist,
         )
 
         refined = self._refine_with_model(package)
@@ -105,18 +103,6 @@ class SignalExtractor:
             f"{joined}. These are the stories most likely to shape meetings, risk calls, and market tone."
         )
 
-    def _heuristic_watchlist(
-        self,
-        sections: Dict[str, List[ExtractedNote]],
-    ) -> List[str]:
-        watch_items = []
-        for category, notes in sections.items():
-            if not notes:
-                continue
-            label = category.replace("_", " ").title()
-            watch_items.append(f"{label}: track follow-through on {notes[0].headline}.")
-        return watch_items[:5]
-
     def _market_movers(self, raw_items: List[RawItem]) -> List[Dict[str, str]]:
         skill = self.skills.get("markets")
         if isinstance(skill, MarketsSkill):
@@ -155,7 +141,8 @@ class SignalExtractor:
             system=(
                 "You are a morning briefing signal editor. Use only the supplied source items. "
                 "Prefer the last 24 hours, include exact dates when they matter, avoid duplicate "
-                "stories across categories, and make every why_it_matters line conversational."
+                "stories across categories, and make every why_it_matters line conversational. "
+                "Avoid repeated wording across developments and implications."
             ),
             user=(
                 "Convert these source notes into top developments for geopolitics, technology_ai, "
@@ -208,11 +195,6 @@ class SignalExtractor:
                 )
             sections[category] = notes or original.sections.get(category, [])
 
-        watchlist = [
-            clean_text(value, 220)
-            for value in result.get("watchlist", [])
-            if isinstance(value, str)
-        ][:5]
         return SignalPackage(
             generated_at=original.generated_at,
             lookback_hours=original.lookback_hours,
@@ -222,7 +204,6 @@ class SignalExtractor:
             ),
             sections=sections,
             market_movers=original.market_movers,
-            watchlist=watchlist or original.watchlist,
             model_used=self.config.openai_signal_model,
             warnings=original.warnings,
         )
@@ -262,7 +243,6 @@ def signal_schema() -> Dict[str, object]:
                 },
                 "required": ["geopolitics", "technology_ai", "markets"],
             },
-            "watchlist": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["what_matters_today", "sections", "watchlist"],
+        "required": ["what_matters_today", "sections"],
     }

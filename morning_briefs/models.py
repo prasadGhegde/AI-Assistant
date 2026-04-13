@@ -48,6 +48,8 @@ class WeatherReport:
     advisory: str = ""
     source_name: str = "Open-Meteo"
     source_url: str = "https://open-meteo.com/"
+    hourly: List[Dict[str, Any]] = field(default_factory=list)
+    alerts: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -84,7 +86,6 @@ class SignalPackage:
     sections: Dict[str, List[ExtractedNote]]
     cross_domain_links: List[str] = field(default_factory=list)
     market_movers: List[Dict[str, Any]] = field(default_factory=list)
-    watchlist: List[str] = field(default_factory=list)
     model_used: str = "heuristic"
     warnings: List[str] = field(default_factory=list)
 
@@ -99,7 +100,6 @@ class SignalPackage:
             },
             "cross_domain_links": self.cross_domain_links,
             "market_movers": self.market_movers,
-            "watchlist": self.watchlist,
             "model_used": self.model_used,
             "warnings": self.warnings,
         }

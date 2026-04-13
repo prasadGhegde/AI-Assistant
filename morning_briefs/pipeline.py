@@ -19,6 +19,7 @@ from .utils import copy_latest, ensure_dirs, save_json, save_text
 from .utils import word_count
 from .weather import WeatherService
 from .writer import ScriptWriter
+from .intel_data import DashboardIntelCollector
 
 
 def run_once(
@@ -80,6 +81,9 @@ def run_once(
     save_text(script_path, script.markdown)
     save_text(latest_script_path, script.markdown)
 
+    intel_modules, intel_warnings = DashboardIntelCollector(config).collect(signals)
+    warnings.extend(intel_warnings)
+
     audio_path = None
     latest_audio_path = None
     voice_result: Optional[VoiceRenderResult] = None
@@ -133,6 +137,7 @@ def run_once(
         signals=signals,
         script=script,
         weather=weather,
+        intel=intel_modules,
         generated_at=generated_at,
         audio_path=latest_audio_path,
         output_path=dashboard_path,
@@ -141,6 +146,7 @@ def run_once(
         signals=signals,
         script=script,
         weather=weather,
+        intel=intel_modules,
         generated_at=generated_at,
         audio_path=latest_audio_path,
         output_path=latest_dashboard_path,

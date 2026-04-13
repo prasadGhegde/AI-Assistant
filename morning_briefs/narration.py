@@ -18,7 +18,6 @@ PHRASE_KEYS = [
     "geopolitics_transitions",
     "technology_transitions",
     "market_transitions",
-    "watchlist_intros",
     "closings",
     "final_questions",
 ]
@@ -34,7 +33,6 @@ class NarrationPlan:
     geopolitics_transition: str
     technology_transition: str
     market_transition: str
-    watchlist_intro: str
     closing: str
     final_question: str
 
@@ -86,7 +84,6 @@ class NarrationPlanner:
             geopolitics_transition=chosen["geopolitics_transitions"],
             technology_transition=chosen["technology_transitions"],
             market_transition=chosen["market_transitions"],
-            watchlist_intro=chosen["watchlist_intros"],
             closing=chosen["closings"],
             final_question=chosen["final_questions"],
         )
@@ -169,7 +166,6 @@ class NarrationPlanner:
             "geopolitics_transitions": "geopolitics_transition",
             "technology_transitions": "technology_transition",
             "market_transitions": "market_transition",
-            "watchlist_intros": "watchlist_intro",
             "closings": "closing",
             "final_questions": "final_question",
         }

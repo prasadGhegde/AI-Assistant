@@ -11,8 +11,7 @@ Weather is an official part of the morning briefing flow. The sequence is:
 3. Geopolitics.
 4. Technology and AI.
 5. Stock market.
-6. Watch list for today.
-7. Closing question with a silent 10-second typed follow-up window.
+6. Closing question with a silent 10-second typed follow-up window.
 
 The flow should feel woven together, not like disconnected blocks. Transitions should be smooth, brief, and natural. Structural headings are for Markdown and dashboard synchronization only; they must not be spoken as phrases.
 
@@ -36,7 +35,7 @@ Keep raw source data with quality scores and rejection reasons so the filter can
 
 ## Speaking Style
 
-The assistant should sound premium, energetic, cinematic, conversational, and useful. Use the OpenAI TTS Ryan system voice for the narrated briefing when available: greeting, weather, news, watch list, and the spoken closing question. Follow-up answers are now typed in the dashboard rather than spoken because microphone handoff was unreliable. Aim for a warm, intelligent, well-mannered morning assistant with a lightly British cadence when the selected voice supports it. Do not imitate, name, or clone any copyrighted character or protected voice.
+The assistant should sound premium, energetic, cinematic, conversational, and useful. Use the OpenAI TTS Ryan system voice for the narrated briefing when available: greeting, weather, news, and the spoken closing question. Follow-up answers are now typed in the dashboard rather than spoken because microphone handoff was unreliable. Aim for a warm, intelligent, well-mannered morning assistant with a lightly British cadence when the selected voice supports it. Do not imitate, name, or clone any copyrighted character or protected voice.
 
 Use punctuation as an emotional instrument for the TTS voice:
 - Em-dash (—) creates a natural beat or dramatic pause between clauses.
@@ -67,7 +66,7 @@ The tone should feel like a real debrief from a dedicated intelligence officer �
 ## Narration Rules
 
 - The LLM must not freely invent the greeting, operation name, section transitions, closing, or final question.
-- The opening, transitions, watchlist intro, closing, and final question must be assembled from curated phrase banks.
+- The opening, transitions, closing, and final question must be assembled from curated phrase banks.
 - The content body can remain flexible, but it must fit inside the fixed briefing structure.
 - Select only one phrase from each phrase-bank category per run.
 - Avoid repeating the same phrase inside a single briefing.
@@ -85,8 +84,7 @@ Every run should follow this stable spoken structure while still sounding human 
 4. Geopolitics transition and body: factual, constructive, source-backed developments with a practical implication.
 5. Technology and AI transition and body: substance over spectacle, focused on platforms, models, deployment, policy, compute, security, and useful momentum.
 6. Market transition and body: constructive market signals, leadership, breadth, earnings, rates, or watchable positioning without panic framing.
-7. Watchlist intro and watchlist: a short set of concrete threads to revisit, not a repeated summary.
-8. Closing and final question: one concise closing line plus one concise question, then stop speaking.
+7. Closing and final question: one concise closing line plus one concise question, then stop speaking.
 
 ## Phrase Banks
 
@@ -162,16 +160,6 @@ Market Transitions:
 - On the financial board — the useful signal is not just price.
 - Market front, now. Breadth, leadership, and positioning. Let's go.
 
-Watchlist Intros:
-
-- For the watch list — keep these operational threads close.
-- Before we close: these are the threads worth revisiting today.
-- Your watch list is short and practical.
-- These are the items I would keep on the console through midday.
-- Watch list is live. Three things I would not let slip past noon.
-- Final pane before debrief closes — your watch list.
-- These threads have legs. Keep them on the board today.
-
 Closings:
 
 - That concludes today's debrief, Captain.
@@ -221,7 +209,7 @@ During speech, the dashboard should:
 - Use the real browser audio element time for the primary presentation sync.
 - Run visual sync from animation frames during playback so the left progress rail and active clipping do not lag behind audio.
 - Build cue proportions from actual script section word counts, not large fixed category blocks, then scale those proportions to the real MP3 duration once audio metadata is available.
-- Progress from intro to weather to news to watch list to closing.
+- Progress from intro to weather to news to closing.
 - Avoid jumpy motion.
 - Keep visual focus aligned with the narration timeline.
 - Keep all narration-supporting cards readable with complete sentences. Do not truncate key story text with ellipses; resize, reflow, or scroll secondary stacks instead.

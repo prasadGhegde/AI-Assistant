@@ -11,7 +11,6 @@
       "geopolitics_transitions",
       "technology_transitions",
       "market_transitions",
-      "watchlist_intros",
       "closings",
       "final_questions"
     ]
@@ -66,12 +65,6 @@
       "For markets, the useful read is leadership, breadth, and what may carry into the open.",
       "The financial pane is next, focused on signals that can shape positioning.",
       "Now to the market front, where price action is useful only when the signal has depth."
-    ],
-    "watchlist_intros": [
-      "For the watch list, keep these operational threads close.",
-      "Before we close, these are the threads worth revisiting today.",
-      "Your watch list is short and practical.",
-      "These are the items I would keep on the console through midday."
     ],
     "closings": [
       "That concludes today's debrief, Captain.",

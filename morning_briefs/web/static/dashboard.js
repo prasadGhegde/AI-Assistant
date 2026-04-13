@@ -16,7 +16,6 @@ const phaseOrder = [
   ["geopolitics", "Geopolitics"],
   ["technology_ai", "Technology"],
   ["markets", "Markets"],
-  ["watchlist", "Watch list"],
   ["closing_question", "Close"],
 ];
 
@@ -31,6 +30,7 @@ let sessionComplete = false;
 let playbackStarting = false;
 let musicFadeFrame = null;
 let audioSyncFrame = null;
+let worldClockTimer = null;
 
 const VISUAL_SYNC_LEAD_SECONDS = 0.42;
 
@@ -46,6 +46,10 @@ if (presentationMode) {
 
 function section(name) {
   return (data.sections && data.sections[name]) || [];
+}
+
+function intel() {
+  return data.intel || {};
 }
 
 function text(value, fallback = "") {
@@ -132,27 +136,19 @@ function firstSentence(value, fallback) {
   return (match ? match[1] : normalized).trim();
 }
 
-// ── WMO weather code → icon ────────────────────────────────────────────────
 function weatherIconForCode(code) {
   if (code == null) return "◈";
   const c = Number(code);
   if (c === 0) return "☀";
   if (c <= 2) return "⛅";
   if (c <= 3) return "☁";
-  if (c <= 9) return "🌫";
-  if (c <= 19) return "🌫";
-  if (c <= 29) return "〰";
-  if (c <= 39) return "🌫";
   if (c <= 49) return "🌫";
-  if (c <= 59) return "🌦";
   if (c <= 69) return "🌧";
-  if (c <= 79) return "❄";
   if (c <= 84) return "🌦";
   if (c <= 94) return "⛈";
   return "⛈";
 }
 
-// ── Boot sequence ──────────────────────────────────────────────────────────
 function runBootSequence() {
   const items = [
     {label: "SYS INIT", cls: "ok"},
@@ -168,11 +164,10 @@ function runBootSequence() {
       span.className = `boot-status-item ${item.cls}`;
       span.textContent = `▸ ${item.label}`;
       container.appendChild(span);
-    }, idx * 280);
+    }, idx * 260);
   });
 }
 
-// ── Phase rail ─────────────────────────────────────────────────────────────
 function renderPhaseRail() {
   const rail = document.getElementById("phaseRail");
   rail.innerHTML = phaseOrder.map(([key, label], index) => `
@@ -187,234 +182,290 @@ function renderPhaseRail() {
   `).join("");
 }
 
-// ── Weather ────────────────────────────────────────────────────────────────
 function renderWeather() {
   const w = data.weather || {};
-
-  const loc = document.getElementById("weatherLocation");
-  if (loc) loc.textContent = w.location_name || "—";
-
   const tempEl = document.getElementById("weatherTemp");
+  const feelsEl = document.getElementById("weatherFeels");
+  const iconEl = document.getElementById("weatherIcon");
+  const condEl = document.getElementById("weatherCond");
+  const windEl = document.getElementById("weatherWind");
+  const precipEl = document.getElementById("weatherPrecip");
+  const cloudEl = document.getElementById("weatherCloud");
+  const briefEl = document.getElementById("weatherBriefText");
+  const locEl = document.getElementById("weatherLocation");
+
+  if (locEl) locEl.textContent = w.location_name || "—";
   if (tempEl) {
     tempEl.textContent = w.temperature != null
       ? `${Math.round(w.temperature)}${w.temperature_unit || "°"}`
       : "—";
   }
-
-  const feelsEl = document.getElementById("weatherFeels");
   if (feelsEl) {
     feelsEl.textContent = w.apparent_temperature != null
       ? `feels ${Math.round(w.apparent_temperature)}${w.temperature_unit || "°"}`
       : "";
   }
-
-  const iconEl = document.getElementById("weatherIcon");
   if (iconEl) iconEl.textContent = weatherIconForCode(w.weather_code);
-
-  const condEl = document.getElementById("weatherCond");
   if (condEl) condEl.textContent = w.conditions || "—";
-
-  const windEl = document.getElementById("weatherWind");
-  if (windEl) {
-    windEl.textContent = w.wind_speed != null
-      ? `${Math.round(w.wind_speed)} ${w.wind_unit || "km/h"}`
-      : "—";
-  }
-
-  const precipEl = document.getElementById("weatherPrecip");
-  if (precipEl) {
-    precipEl.textContent = w.precipitation_probability != null
-      ? `${w.precipitation_probability}%`
-      : "—";
-  }
-
-  const cloudEl = document.getElementById("weatherCloud");
-  if (cloudEl) {
-    cloudEl.textContent = w.cloud_cover != null
-      ? `${w.cloud_cover}%`
-      : "—";
-  }
-
-  const advEl = document.getElementById("weatherAdvice");
-  if (advEl) {
-    advEl.textContent = w.advisory || "No field advisory at this time.";
-  }
+  if (windEl) windEl.textContent = w.wind_speed != null ? `${Math.round(w.wind_speed)} ${w.wind_unit || "km/h"}` : "—";
+  if (precipEl) precipEl.textContent = w.precipitation_probability != null ? `${w.precipitation_probability}%` : "—";
+  if (cloudEl) cloudEl.textContent = w.cloud_cover != null ? `${w.cloud_cover}%` : "—";
+  if (briefEl) briefEl.textContent = w.advisory || "No field advisory at this time.";
 
   const carryEl = document.getElementById("weatherCarry");
   if (carryEl) {
-    const tags = [
-      ...(w.carry || []),
-      ...(w.wear || []),
-    ].filter(Boolean).slice(0, 6);
-    carryEl.innerHTML = tags.length
-      ? tags.map(t => `<span class="weather-carry-tag">${escapeHtml(t)}</span>`).join("")
-      : "";
+    const tags = [...(w.carry || []), ...(w.wear || [])].filter(Boolean).slice(0, 6);
+    carryEl.innerHTML = tags.map((t) => `<span class="weather-carry-tag">${escapeHtml(t)}</span>`).join("");
+  }
+
+  const timelineEl = document.getElementById("weatherTimeline");
+  if (timelineEl) {
+    const hourly = w.hourly || [];
+    timelineEl.innerHTML = hourly.slice(0, 8).map((row) => `
+      <article class="intel-chip-card">
+        <span>${escapeHtml(row.time || "--")}</span>
+        <strong>${escapeHtml(row.temperature == null ? "--" : `${Math.round(row.temperature)}${w.temperature_unit || "°"}`)}</strong>
+        <small>${escapeHtml(row.precipitation_probability == null ? "" : `${row.precipitation_probability}% precip`)}</small>
+      </article>
+    `).join("") || `<article class="intel-chip-card"><span>timeline</span><strong>Unavailable</strong></article>`;
+  }
+
+  const alertsEl = document.getElementById("weatherAlerts");
+  if (alertsEl) {
+    const alerts = w.alerts || [];
+    alertsEl.innerHTML = alerts.map((item) => `
+      <article class="intel-chip-card"><span>alert</span><strong>${escapeHtml(item)}</strong></article>
+    `).join("") || `<article class="intel-chip-card"><span>alerts</span><strong>No severe alerts</strong></article>`;
   }
 }
 
-// ── Watch list ─────────────────────────────────────────────────────────────
-const CATEGORY_PATTERNS = {
-  geo: /\b(war|sanction|geopolit|country|border|conflict|russia|china|iran|nato|un |treaty|election)\b/i,
-  tech: /\b(ai|model|chip|semiconductor|tech|llm|openai|google|apple|microsoft|software|robot|autonomous)\b/i,
-  market: /\b(market|stock|fed|rate|inflation|dollar|oil|yield|economy|gdp|trade|tariff|bond|equit)\b/i,
-};
-
-function categoryTagForItem(text) {
-  if (CATEGORY_PATTERNS.geo.test(text)) return {cls: "watch-tag-geo", label: "Geo"};
-  if (CATEGORY_PATTERNS.tech.test(text)) return {cls: "watch-tag-tech", label: "Tech"};
-  if (CATEGORY_PATTERNS.market.test(text)) return {cls: "watch-tag-market", label: "Market"};
-  return {cls: "watch-tag-default", label: "Watch"};
-}
-
-function renderWatchList() {
-  const watch = data.watchlist || [];
-  const el = document.getElementById("watchList");
-  if (!el) return;
-  if (!watch.length) {
-    el.innerHTML = `<article class="watch-item"><span class="watch-item-text">No watch items passed the filter.</span></article>`;
-    return;
+function renderWorldClock() {
+  function update() {
+    const now = new Date();
+    const options = {hour: "2-digit", minute: "2-digit", hour12: false};
+    const india = now.toLocaleTimeString("en-GB", {...options, timeZone: "Asia/Kolkata"});
+    const us = now.toLocaleTimeString("en-US", {...options, timeZone: "America/New_York"});
+    const china = now.toLocaleTimeString("en-GB", {...options, timeZone: "Asia/Shanghai"});
+    const indiaEl = document.getElementById("clockIndia");
+    const usEl = document.getElementById("clockUS");
+    const chinaEl = document.getElementById("clockChina");
+    if (indiaEl) indiaEl.textContent = india;
+    if (usEl) usEl.textContent = us;
+    if (chinaEl) chinaEl.textContent = china;
   }
-  el.innerHTML = watch.map((item, idx) => {
-    const tag = categoryTagForItem(item);
-    return `<article class="watch-item" style="animation-delay:${idx * 0.06}s">
-      <span class="watch-item-idx">Watch ${String(idx + 1).padStart(2, "0")}</span>
-      <span class="watch-item-text">${escapeHtml(item)}</span>
-      <span class="watch-item-tag ${tag.cls}">${tag.label}</span>
-    </article>`;
-  }).join("");
-}
-
-// ── Intel sidebar (replaces support-stack + story-rail) ────────────────────
-function renderIntelSidebar(category, activeIndex) {
-  const sidebar = document.getElementById("intelSidebar");
-  if (!sidebar) return;
-  const notes = section(category);
-  if (!notes.length) {
-    sidebar.innerHTML = `<div class="story-mini"><span class="story-mini-headline">No items in this category.</span></div>`;
-    return;
+  update();
+  if (worldClockTimer) {
+    clearInterval(worldClockTimer);
   }
-
-  // Story mini-cards list
-  const miniCards = notes.map((note, idx) => {
-    const isActive = idx === activeIndex;
-    const score = note.quality_score || note.relevance_score;
-    let scoreCls = "score-low";
-    let scoreLabel = "";
-    if (score != null) {
-      scoreLabel = score >= 7 ? `▲ ${score}` : score >= 4 ? `◆ ${score}` : `▽ ${score}`;
-      scoreCls = score >= 7 ? "score-high" : score >= 4 ? "score-med" : "score-low";
-    }
-    return `<article class="story-mini${isActive ? " is-active" : ""}">
-      <div class="story-mini-num">SIG ${String(idx + 1).padStart(2, "0")}</div>
-      <div class="story-mini-headline">${escapeHtml(note.headline || "Untitled")}</div>
-      <div class="story-mini-meta">
-        <span class="story-mini-source">${escapeHtml(note.source_name || "")}</span>
-        ${scoreLabel ? `<span class="story-mini-score ${scoreCls}">${escapeHtml(scoreLabel)}</span>` : ""}
-      </div>
-    </article>`;
-  }).join("");
-
-  sidebar.innerHTML = miniCards;
+  worldClockTimer = window.setInterval(update, 30000);
 }
 
-// ── Source stack (right dossier panel) ────────────────────────────────────
+function toggleCategoryCards(category) {
+  document.querySelectorAll(".category-card").forEach((node) => {
+    const categories = (node.dataset.category || "").split(/\s+/).filter(Boolean);
+    const visible = categories.includes(category);
+    node.classList.toggle("hidden", !visible);
+  });
+}
+
 function renderSourceStack(category) {
   const notes = section(category);
   const stack = document.getElementById("sourceStack");
-  if (!stack) return;
-  document.getElementById("sourceCount").textContent = `${notes.length} items`;
-  stack.innerHTML = notes.slice(0, 6).map((note) => `
-    <article class="source-card">
-      <small>${escapeHtml(note.source_name || "Source")}</small>
+  const count = document.getElementById("sourceCount");
+  if (!stack || !count) return;
+
+  const links = notes.slice(0, 3);
+  count.textContent = `${links.length} links`;
+  stack.innerHTML = links.map((note) => `
+    <article class="source-card source-link-compact">
+      <small>${escapeHtml(note.source_name || "source")}</small>
       <strong>${link(note.headline || "Untitled", note.url)}</strong>
-      <p>${escapeHtml(compactDate(note.published_at))}</p>
     </article>
-  `).join("") || `<article class="source-card"><strong>No source in focus</strong><p>Waiting for the first clipping.</p></article>`;
-}
-
-// ── Sector heatmap (markets panel) ────────────────────────────────────────
-const SECTOR_ETFS = [
-  {ticker: "XLK", name: "Tech"},
-  {ticker: "XLF", name: "Financials"},
-  {ticker: "XLE", name: "Energy"},
-  {ticker: "XLV", name: "Healthcare"},
-  {ticker: "XLY", name: "Cons. Disc."},
-  {ticker: "XLI", name: "Industrial"},
-  {ticker: "XLP", name: "Staples"},
-  {ticker: "XLU", name: "Utilities"},
-  {ticker: "XLB", name: "Materials"},
-  {ticker: "XLRE", name: "Real Estate"},
-  {ticker: "XLC", name: "Comm. Svcs"},
-  {ticker: "SMH", name: "Semis"},
-];
-
-function seedFromStr(s) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-  return ((h >>> 0) / 0xFFFFFFFF);
-}
-
-function deriveMarketTone() {
-  // Extract signals from market notes to get a rough directional tone
-  const notes = section("markets");
-  if (!notes.length) return 0;
-  const combined = notes.map(n => `${n.headline || ""} ${n.note || ""}`).join(" ").toLowerCase();
-  const pos = (combined.match(/\b(gain|rally|surge|rise|up|bull|growth|strong|positive|higher)\b/g) || []).length;
-  const neg = (combined.match(/\b(loss|fall|drop|decline|down|bear|weak|negative|lower|slump)\b/g) || []).length;
-  return pos - neg;
+  `).join("") || `<article class="source-card source-link-compact"><strong>No links for this section.</strong></article>`;
 }
 
 function renderSectorHeatmap() {
   const grid = document.getElementById("sectorGrid");
   if (!grid) return;
-  const tone = deriveMarketTone();
-  const dateStr = String(data.generated_at || Date.now());
-  grid.innerHTML = SECTOR_ETFS.map((sector, idx) => {
-    const seed = seedFromStr(sector.ticker + dateStr);
-    const toneNudge = (tone * 0.3) / 10;
-    const rawPct = (seed - 0.48 + toneNudge) * 6;
-    const pct = Math.round(rawPct * 10) / 10;
-    const sign = pct >= 0 ? "+" : "";
-    let cellCls, pctCls;
-    if (pct > 1.2) { cellCls = "heat-pos-strong"; pctCls = "pos"; }
-    else if (pct > 0) { cellCls = "heat-pos"; pctCls = "pos"; }
-    else if (pct < -1.2) { cellCls = "heat-neg-strong"; pctCls = "neg"; }
-    else if (pct < 0) { cellCls = "heat-neg"; pctCls = "neg"; }
-    else { cellCls = "heat-flat"; pctCls = "flat"; }
-    return `<div class="sector-cell ${cellCls}" style="animation-delay:${idx * 0.04}s" title="${escapeAttr(sector.name)}">
-      <div class="sector-ticker">${escapeHtml(sector.ticker)}</div>
-      <span class="sector-pct ${pctCls}">${sign}${pct}%</span>
-      <span class="sector-name">${escapeHtml(sector.name)}</span>
+  const moduleData = (((intel().markets || {}).sector_heatmap) || {});
+  const items = moduleData.items || [];
+  if (!items.length) {
+    grid.innerHTML = `<div class="sector-cell heat-flat"><div class="sector-ticker">N/A</div><span class="sector-pct flat">Unavailable</span></div>`;
+    return;
+  }
+  grid.innerHTML = items.slice(0, 9).map((row) => {
+    const intensity = Number(row.intensity || 0);
+    let cls = "heat-flat";
+    if (row.band === "high") cls = "heat-pos-strong";
+    else if (row.band === "medium") cls = "heat-pos";
+    else if (row.band === "low") cls = "heat-flat";
+    return `<div class="sector-cell ${cls}">
+      <div class="sector-ticker">${escapeHtml(row.name || "Sector")}</div>
+      <span class="sector-pct pos">${escapeHtml(String(row.hits || 0))} hits</span>
+      <span class="sector-name">${escapeHtml(String(intensity))}% intensity</span>
     </div>`;
   }).join("");
 }
 
-// ── Geo risk / signal metrics panel ───────────────────────────────────────
-function renderGeoRiskPanel() {
-  const grid = document.getElementById("geoRiskGrid");
-  if (!grid) return;
-  const notes = section("geopolitics");
-  if (!notes.length) {
-    grid.innerHTML = `<div class="geo-risk-row"><span class="geo-risk-label">No signals</span></div>`;
-    return;
+function renderGeopoliticsPanels() {
+  const instabilityGrid = document.getElementById("countryInstabilityGrid");
+  const debtClockPanel = document.getElementById("debtClockPanel");
+  const disasterGrid = document.getElementById("disasterCascadeGrid");
+  if (!instabilityGrid || !debtClockPanel || !disasterGrid) return;
+
+  const geo = intel().geopolitics || {};
+  const instability = (geo.country_instability || {}).items || [];
+  instabilityGrid.innerHTML = instability.slice(0, 8).map((row) => `
+    <article class="intel-chip-card">
+      <span>${escapeHtml(row.name || "Region")}</span>
+      <strong>${escapeHtml(String(row.score == null ? "--" : row.score))}</strong>
+    </article>
+  `).join("") || `<article class="intel-chip-card"><span>No data</span><strong>--</strong></article>`;
+
+  const debt = geo.national_debt_clock || {};
+  debtClockPanel.innerHTML = debt.available
+    ? `<article class="intel-chip-card intel-wide">
+         <span>US debt</span>
+         <strong>${escapeHtml(debt.display || "Unavailable")}</strong>
+         <small>${escapeHtml(debt.updated_at || "")}</small>
+       </article>`
+    : `<article class="intel-chip-card intel-wide"><span>Debt clock</span><strong>Unavailable</strong></article>`;
+
+  const disasters = (geo.disaster_cascade || {}).items || [];
+  disasterGrid.innerHTML = disasters.slice(0, 8).map((row) => `
+    <article class="intel-chip-card intel-disaster">
+      <span>${escapeHtml(row.type || "Event")}</span>
+      <strong>${escapeHtml(row.title || "Unnamed")}</strong>
+      <small>${escapeHtml(compactDate(row.time))}</small>
+    </article>
+  `).join("") || `<article class="intel-chip-card"><span>No active events</span><strong>--</strong></article>`;
+
+  const riskEl = document.getElementById("geoStrategicRisk");
+  if (riskEl) {
+    const risk = geo.strategic_risk || {};
+    riskEl.innerHTML = `<article class="intel-chip-card intel-wide"><span>risk status</span><strong>${escapeHtml(risk.label || "Unavailable")}</strong><small>${escapeHtml(risk.detail || "")}</small></article>`;
   }
-  // Build signal metrics from note quality scores / relevance
-  const metrics = notes.slice(0, 6).map(note => {
-    const val = note.quality_score || note.relevance_score || 5;
-    const pct = Math.round(Math.min(Math.max(val / 10, 0), 1) * 100);
-    const barColor = pct >= 70 ? "var(--red)" : pct >= 40 ? "var(--amber)" : "var(--green)";
-    return {label: note.source_name || "Signal", pct, val, barColor};
+
+  const feedEl = document.getElementById("geoIntelFeed");
+  if (feedEl) {
+    const feed = (geo.intel_feed || {}).items || [];
+    feedEl.innerHTML = feed.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.region || "region")}</span><strong>${escapeHtml(row.headline || "")}</strong></article>`).join("") || `<article class="intel-chip-card"><span>feed</span><strong>No live feed</strong></article>`;
+  }
+
+  [
+    ["geoEscalationGrid", (geo.escalation_monitor || {}).items || [], "level"],
+    ["geoForcePostureGrid", (geo.force_posture || {}).items || [], "status"],
+    ["geoSanctionsGrid", (geo.sanctions_pressure || {}).items || [], "pressure"],
+    ["geoRegionalRiskGrid", (geo.regional_risk || {}).items || [], "score"],
+  ].forEach(([id, rows, field]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name || row.region || "region")}</span><strong>${escapeHtml(String(row[field] ?? row.value ?? "--"))}</strong></article>`).join("") || `<article class="intel-chip-card"><span>module</span><strong>Unavailable</strong></article>`;
   });
-  grid.innerHTML = metrics.map((m, idx) => `
-    <div class="geo-risk-row" style="animation-delay:${idx * 0.06}s">
-      <span class="geo-risk-label">${escapeHtml(m.label)}</span>
-      <div class="geo-risk-bar"><i style="width:${m.pct}%;background:${m.barColor}"></i></div>
-      <span class="geo-risk-val">${m.val}</span>
-    </div>
-  `).join("");
 }
 
-// ── Category render ────────────────────────────────────────────────────────
+function renderMarketPanels() {
+  const metalsGrid = document.getElementById("marketMetalsGrid");
+  const cryptoGrid = document.getElementById("marketCryptoGrid");
+  const fearPanel = document.getElementById("fearGreedPanel");
+  const fxGrid = document.getElementById("marketFxGrid");
+  const energyGrid = document.getElementById("marketEnergyGrid");
+  const macroGrid = document.getElementById("marketMacroGrid");
+  const breadthPanel = document.getElementById("marketBreadthPanel");
+  const headlinesPanel = document.getElementById("marketHeadlinesStream");
+  if (!metalsGrid || !cryptoGrid || !fearPanel) return;
+
+  const markets = intel().markets || {};
+  const metals = (markets.metals_materials || {}).items || [];
+  metalsGrid.innerHTML = metals.length
+    ? metals.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name)}</span><strong>${escapeHtml(String(row.mentions))} mentions</strong></article>`).join("")
+    : `<article class="intel-chip-card"><span>Metals/materials</span><strong>No live signals</strong></article>`;
+
+  const crypto = (markets.crypto || {}).items || [];
+  cryptoGrid.innerHTML = crypto.length
+    ? crypto.map((row) => {
+      const change = row.change_24h == null ? "--" : `${row.change_24h >= 0 ? "+" : ""}${row.change_24h.toFixed(2)}%`;
+      return `<article class="intel-chip-card"><span>${escapeHtml(row.symbol)}</span><strong>$${Number(row.price_usd).toLocaleString()}</strong><small>${escapeHtml(change)}</small></article>`;
+    }).join("")
+    : `<article class="intel-chip-card"><span>Crypto</span><strong>Unavailable</strong></article>`;
+
+  const fg = markets.fear_greed || {};
+  fearPanel.innerHTML = `<article class="intel-chip-card intel-wide">
+    <span>${escapeHtml(fg.mode === "fallback_proxy" ? "Fear & greed (proxy)" : "Fear & greed")}</span>
+    <strong>${escapeHtml(fg.value == null ? "--" : `${fg.value} / 100`)}</strong>
+    <small>${escapeHtml(fg.label || "Unavailable")}</small>
+  </article>`;
+
+  if (fxGrid) {
+    const rows = (markets.fx || {}).items || [];
+    fxGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.pair || "FX")}</span><strong>${escapeHtml(String(row.rate ?? "--"))}</strong></article>`).join("") || `<article class="intel-chip-card"><span>FX</span><strong>Unavailable</strong></article>`;
+  }
+
+  if (energyGrid) {
+    const rows = (markets.energy || {}).items || [];
+    energyGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name || "Energy")}</span><strong>${escapeHtml(String(row.value ?? "--"))}</strong><small>${escapeHtml(row.unit || "")}</small></article>`).join("") || `<article class="intel-chip-card"><span>Energy</span><strong>Unavailable</strong></article>`;
+  }
+
+  if (macroGrid) {
+    const rows = (markets.macro_movers || {}).items || [];
+    macroGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name || "Macro")}</span><strong>${escapeHtml(String(row.value ?? "--"))}</strong><small>${escapeHtml(row.change || "")}</small></article>`).join("") || `<article class="intel-chip-card"><span>Macro</span><strong>Unavailable</strong></article>`;
+  }
+
+  if (breadthPanel) {
+    const breadth = markets.breadth || {};
+    breadthPanel.innerHTML = `<article class="intel-chip-card intel-wide"><span>breadth mode</span><strong>${escapeHtml(breadth.label || "Unavailable")}</strong><small>${escapeHtml(breadth.detail || "")}</small></article>`;
+  }
+
+  if (headlinesPanel) {
+    const rows = (markets.headlines || {}).items || [];
+    headlinesPanel.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.source || "source")}</span><strong>${escapeHtml(row.headline || "")}</strong></article>`).join("") || `<article class="intel-chip-card"><span>headlines</span><strong>No market headlines</strong></article>`;
+  }
+}
+
+function renderTechPanels() {
+  const grid = document.getElementById("techMetricsGrid");
+  const labGrid = document.getElementById("techLabActivityGrid");
+  const infraGrid = document.getElementById("techInfrastructureGrid");
+  const enterpriseGrid = document.getElementById("techEnterpriseGrid");
+  const fundingGrid = document.getElementById("techFundingGrid");
+  const headlinesGrid = document.getElementById("techHeadlinesGrid");
+  const ossGrid = document.getElementById("techOpenSourceGrid");
+  const devGrid = document.getElementById("techDeveloperGrid");
+  if (!grid) return;
+  const tech = (intel().technology_ai || {});
+  const metrics = (((intel().technology_ai || {}).metrics) || []);
+  grid.innerHTML = metrics.map((m) => `
+    <article class="intel-chip-card intel-wide">
+      <span>${escapeHtml(m.label || "Metric")}</span>
+      <strong>${escapeHtml(m.value == null ? "--" : String(m.value))}</strong>
+      <small>${escapeHtml(m.detail || "")}</small>
+    </article>
+  `).join("") || `<article class="intel-chip-card intel-wide"><span>AI metrics</span><strong>Unavailable</strong></article>`;
+
+  const writeList = (el, rows, labelField = "name", valueField = "value") => {
+    if (!el) return;
+    el.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row[labelField] || "item")}</span><strong>${escapeHtml(String(row[valueField] ?? row.label ?? "--"))}</strong><small>${escapeHtml(row.detail || "")}</small></article>`).join("") || `<article class="intel-chip-card"><span>module</span><strong>Unavailable</strong></article>`;
+  };
+
+  writeList(labGrid, (tech.lab_activity || {}).items || []);
+  writeList(infraGrid, (tech.infrastructure || {}).items || []);
+  writeList(enterpriseGrid, (tech.enterprise_adoption || {}).items || []);
+  writeList(fundingGrid, (tech.funding_deals || {}).items || []);
+
+  if (headlinesGrid) {
+    const rows = (tech.headlines || {}).items || [];
+    headlinesGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.source || "source")}</span><strong>${escapeHtml(row.headline || "")}</strong></article>`).join("") || `<article class="intel-chip-card"><span>headlines</span><strong>No AI headlines</strong></article>`;
+  }
+  if (ossGrid) {
+    const rows = (tech.open_source || {}).items || [];
+    ossGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name || "oss")}</span><strong>${escapeHtml(row.value || row.headline || "")}</strong></article>`).join("") || `<article class="intel-chip-card"><span>open-source</span><strong>Unavailable</strong></article>`;
+  }
+  if (devGrid) {
+    const rows = (tech.developer_tooling || {}).items || [];
+    devGrid.innerHTML = rows.map((row) => `<article class="intel-chip-card"><span>${escapeHtml(row.name || "dev")}</span><strong>${escapeHtml(row.value || row.headline || "")}</strong></article>`).join("") || `<article class="intel-chip-card"><span>developer</span><strong>Unavailable</strong></article>`;
+  }
+}
+
 function renderCategory(category) {
   if (!category || currentCategory === category) return;
   currentCategory = category;
@@ -426,13 +477,12 @@ function renderCategory(category) {
   if (titleEl) {
     titleEl.textContent = categoryLabels[category] || "Morning signal";
   }
-  renderIntelSidebar(category, -1);
+  toggleCategoryCards(category);
   renderSourceStack(category);
 }
 
-// ── Active clipping ────────────────────────────────────────────────────────
 function cleanImplication(value) {
-  return text(value, "Watch whether this turns into a practical decision point today.")
+  return text(value, "Watch the follow-through, not just the headline.")
     .replace(/^why (it|this) matters( today)?\s*:\s*/i, "")
     .replace(/^this is important because\s*/i, "");
 }
@@ -447,12 +497,9 @@ function activateClipping(topic) {
   document.getElementById("activeSource").textContent = note.source_name || "Source";
   document.getElementById("activeTime").textContent = compactDate(note.published_at);
   document.getElementById("activeHeadline").textContent = note.headline || "Active clipping";
-  document.getElementById("activePointOne").textContent =
-    note.note || note.excerpt || "The main source signal is still being resolved.";
-  document.getElementById("activePointTwo").textContent =
-    cleanImplication(note.why_it_matters || note.note);
-  document.getElementById("activeExcerpt").textContent =
-    note.excerpt || note.note || "No excerpt was provided for this source.";
+  document.getElementById("activePointOne").textContent = note.note || note.excerpt || "Signal is still resolving.";
+  document.getElementById("activePointTwo").textContent = cleanImplication(note.why_it_matters || note.note);
+  document.getElementById("activeExcerpt").textContent = note.excerpt || note.note || "No excerpt was provided for this source.";
 
   const categoryTopics = cueTopics().filter((cue) => cue.section === topic.section);
   const index = categoryTopics.findIndex((cue) => cue.key === topic.key);
@@ -461,11 +508,9 @@ function activateClipping(topic) {
     counterEl.textContent =
       `${String(Math.max(index + 1, 1)).padStart(2, "0")} / ${String(Math.max(categoryTopics.length, 1)).padStart(2, "0")}`;
   }
-  renderIntelSidebar(topic.section, topic.index);
   renderSourceStack(topic.section);
 }
 
-// ── Section activation ─────────────────────────────────────────────────────
 function activateSection(key) {
   lastSectionKey = key;
   const screen = screenForCue(key);
@@ -479,16 +524,6 @@ function activateSection(key) {
     node.classList.toggle("is-active", node.dataset.phase === key);
   });
 
-  // Show/hide right dossier panels
-  const showHeatmap = key === "markets";
-  const showGeoRisk = key === "geopolitics";
-  const sectorHeatmap = document.getElementById("sectorHeatmap");
-  const geoRiskPanel = document.getElementById("geoRiskPanel");
-  const sourceStack = document.getElementById("sourceStack");
-  if (sectorHeatmap) sectorHeatmap.classList.toggle("hidden", !showHeatmap);
-  if (geoRiskPanel) geoRiskPanel.classList.toggle("hidden", !showGeoRisk);
-  // Keep sourceStack visible always (it's the main list)
-
   if (screen === "news") {
     renderCategory(key);
   }
@@ -500,7 +535,6 @@ function activateTopic(topic) {
   activateClipping(topic);
 }
 
-// ── Script + warnings ─────────────────────────────────────────────────────
 function renderScript() {
   const target = document.getElementById("scriptText");
   const lines = String(data.script_markdown || "").split("\n");
@@ -519,11 +553,9 @@ function renderScript() {
 
 function renderWarnings() {
   const warnings = data.warnings || [];
-  document.getElementById("warnings").innerHTML =
-    warnings.map((warning) => `<p>${escapeHtml(warning)}</p>`).join("");
+  document.getElementById("warnings").innerHTML = warnings.map((warning) => `<p>${escapeHtml(warning)}</p>`).join("");
 }
 
-// ── Audio ──────────────────────────────────────────────────────────────────
 function setupAudio() {
   if (data.music_src) {
     musicAudio.src = data.music_src;
@@ -556,12 +588,9 @@ function setupAudio() {
   briefAudio.addEventListener("pause", () => {
     if (!briefAudio.ended) stopAudioSyncLoop();
   });
-  briefAudio.addEventListener("timeupdate", () =>
-    updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
-  briefAudio.addEventListener("seeking", () =>
-    updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
-  briefAudio.addEventListener("ratechange", () =>
-    updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
+  briefAudio.addEventListener("timeupdate", () => updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
+  briefAudio.addEventListener("seeking", () => updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
+  briefAudio.addEventListener("ratechange", () => updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
   briefAudio.addEventListener("ended", () => {
     stopAudioSyncLoop();
     updateActiveCue(totalTimelineSeconds(), 1);
@@ -703,8 +732,7 @@ function updateActiveCue(seconds, audioRatio = null) {
   const topics = cueTopics();
   const totalSeconds = totalTimelineSeconds();
   const visualSeconds = Math.min(seconds + VISUAL_SYNC_LEAD_SECONDS, totalSeconds);
-  const activeSection = sections.find((cue) => visualSeconds >= cue.start && visualSeconds < cue.end)
-    || sections[sections.length - 1];
+  const activeSection = sections.find((cue) => visualSeconds >= cue.start && visualSeconds < cue.end) || sections[sections.length - 1];
   const activeTopic = topics.find((cue) => visualSeconds >= cue.start && visualSeconds < cue.end);
   const percent = Math.min(100, (audioRatio == null ? seconds / totalSeconds : audioRatio) * 100);
   const railPercent = Math.min(100, (visualSeconds / totalSeconds) * 100);
@@ -739,7 +767,6 @@ function updatePhaseProgress(seconds) {
   });
 }
 
-// ── Countdown / followup ───────────────────────────────────────────────────
 function startClosingCountdown() {
   if (closingCountdownStarted) return;
   closingCountdownStarted = true;
@@ -796,10 +823,7 @@ function submitFollowup(question) {
     .then((payload) => {
       const answer = payload.answer || `Noted. I will keep ${question} on the radar.`;
       message.textContent = answer;
-      window.setTimeout(
-        () => completeSession("typed_followup_answered"),
-        Math.min(Math.max(answer.length * 45, 7000), 12000)
-      );
+      window.setTimeout(() => completeSession("typed_followup_answered"), Math.min(Math.max(answer.length * 45, 7000), 12000));
     })
     .catch(() => {
       const answer = `Noted. I will keep ${question} on the radar.`;
@@ -828,7 +852,6 @@ function completeSession(reason) {
   window.setTimeout(() => { window.close(); }, 900);
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────
 document.getElementById("greetingHeadline").textContent = firstSentence(
   data.script_sections && data.script_sections.greeting,
   text(data.narration_plan && data.narration_plan.opening_line, "Good morning.")
@@ -843,13 +866,15 @@ document.getElementById("modelUsed").textContent =
 
 renderPhaseRail();
 renderWeather();
-renderWatchList();
+renderWorldClock();
 renderScript();
 renderWarnings();
 renderSourceStack("geopolitics");
 renderCategory("geopolitics");
 renderSectorHeatmap();
-renderGeoRiskPanel();
+renderGeopoliticsPanels();
+renderMarketPanels();
+renderTechPanels();
 setupFollowupForm();
 setupAudio();
 updateActiveCue(0);

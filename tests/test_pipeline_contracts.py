@@ -142,7 +142,6 @@ class PipelineContractsTest(unittest.TestCase):
                     "technology_ai": [replace(note, category="technology_ai", headline="AI platform update lands")],
                     "markets": [replace(note, category="markets", headline="Markets watch rates")],
                 },
-                watchlist=["Track source updates."],
             )
             script, _ = ScriptWriter(config).write(signals, now)
             plan = script.narration_plan
@@ -199,7 +198,6 @@ class PipelineContractsTest(unittest.TestCase):
                     "technology_ai": [replace(note, category="technology_ai", headline="AI deployment expands")],
                     "markets": [replace(note, category="markets", headline="Market breadth improves")],
                 },
-                watchlist=["Check official follow-through."],
             )
             sparse = (
                 "# Operation Test\n\n"
@@ -208,7 +206,6 @@ class PipelineContractsTest(unittest.TestCase):
                 "## Geopolitics\nGlobal transition.\n\n"
                 "## Technology and AI\nTechnology transition.\n\n"
                 "## Stock market\nMarket transition.\n\n"
-                "## Watch list for today\nWatch.\n\n"
                 "## Closing question\nQuestion?"
             )
             with patch.object(ScriptWriter, "_write_with_model", return_value=sparse):
@@ -246,7 +243,6 @@ class PipelineContractsTest(unittest.TestCase):
                     "technology_ai": [note],
                     "markets": [],
                 },
-                watchlist=["Technology Ai: track follow-through on decision-support adoption."],
             )
             script, _ = ScriptWriter(config).write(signals, now)
             self.assertNotIn("The source timestamp is", script.markdown)

@@ -23,6 +23,7 @@ class DashboardRenderer:
         signals: SignalPackage,
         script: ScriptPackage,
         weather: WeatherReport,
+        intel: Dict[str, object],
         generated_at: datetime,
         audio_path: Optional[Path],
         output_path: Path,
@@ -41,7 +42,7 @@ class DashboardRenderer:
             ):
                 shutil.copyfile(self.config.music_source_path, music_asset_path)
 
-        data = self._dashboard_data(signals, script, weather, generated_at, audio_path)
+        data = self._dashboard_data(signals, script, weather, intel, generated_at, audio_path)
         data_path = output_path.with_suffix(".json")
         save_json(data_path, data)
 
@@ -62,6 +63,7 @@ class DashboardRenderer:
         signals: SignalPackage,
         script: ScriptPackage,
         weather: WeatherReport,
+        intel: Dict[str, object],
         generated_at: datetime,
         audio_path: Optional[Path],
     ) -> Dict[str, object]:
@@ -82,9 +84,9 @@ class DashboardRenderer:
             "user_name": self.config.user_name,
             "what_matters_today": signals.what_matters_today,
             "weather": weather.to_dict(),
+            "intel": intel,
             "sections": sections,
             "market_movers": signals.market_movers,
-            "watchlist": signals.watchlist,
             "script_markdown": script.markdown,
             "script_sections": script.sections,
             "narration_plan": script.narration_plan,
@@ -114,7 +116,6 @@ class DashboardRenderer:
             ("geopolitics", "Geopolitics", 18),
             ("technology_ai", "Technology and AI", 18),
             ("markets", "Stock market", 18),
-            ("watchlist", "Watch list", 10),
             ("closing_question", "Closing question", 5),
         ]
         wpm = 145
