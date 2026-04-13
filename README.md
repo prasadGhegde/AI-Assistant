@@ -285,3 +285,13 @@ Morning Briefs is an informational local assistant. It is not financial, legal, 
 ## License
 
 No license file is currently included. Add a `LICENSE` file before distributing or accepting external contributions.
+
+
+Video Reference
+
+
+https://github.com/user-attachments/assets/4253e792-a351-410e-8c50-543126dea56d
+
+
+
+
