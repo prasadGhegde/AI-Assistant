@@ -1,4 +1,13 @@
 {
+  "weather": {
+    "display_name": "Weather",
+    "purpose": "Open the briefing with practical current weather, what to wear or carry, and a lively visual transition into the day.",
+    "subskills": [
+      "conditions_read",
+      "carry_wear_advice",
+      "weather_risk_cues"
+    ]
+  },
   "geopolitics": {
     "display_name": "Geopolitics",
     "purpose": "Surface consequential diplomacy, conflict, energy security, elections, sanctions, and supply-chain risk.",

@@ -25,4 +25,4 @@ where = ["."]
 include = ["morning_briefs*"]
 
 [tool.setuptools.package-data]
-morning_briefs = ["web/templates/*.html", "web/static/*"]
+morning_briefs = ["web/templates/*.html", "web/static/*", "skills/weather/*.md"]

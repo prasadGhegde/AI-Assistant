@@ -45,15 +45,21 @@ class SignalExtractor:
         refined = self._refine_with_model(package)
         if refined is not None:
             package = refined
-            package.model_used = self.config.openai_model
+            package.model_used = self.config.openai_signal_model
         elif self.config.openai_api_key:
             warnings.append("OpenAI signal refinement failed; used local heuristics.")
         else:
             warnings.append("OPENAI_API_KEY not set; used local heuristic extraction.")
+        if not any(package.sections.values()):
+            warnings.append(
+                "No source passed the news-quality filter; check sources or loosen config/news_quality.json."
+            )
         package.warnings.extend(warnings)
         return package, warnings
 
-    def _heuristic_sections(self, raw_items: List[RawItem]) -> Dict[str, List[ExtractedNote]]:
+    def _heuristic_sections(
+        self, raw_items: List[RawItem]
+    ) -> Dict[str, List[ExtractedNote]]:
         sections: Dict[str, List[ExtractedNote]] = {}
         used_story_keys = set()
 
@@ -63,12 +69,14 @@ class SignalExtractor:
             for item in raw_items:
                 if item.category != category:
                     continue
+                if not item.is_relevant:
+                    continue
                 if (
                     item.freshness_hours is not None
                     and item.freshness_hours > self.config.last_hours * 2
                 ):
                     continue
-                score = skill.score_item(item, self.config.last_hours)
+                score = skill.score_item(item, self.config.last_hours) + item.quality_score
                 candidates.append((score, item))
 
             notes = []
@@ -98,7 +106,8 @@ class SignalExtractor:
         )
 
     def _heuristic_watchlist(
-        self, sections: Dict[str, List[ExtractedNote]]
+        self,
+        sections: Dict[str, List[ExtractedNote]],
     ) -> List[str]:
         watch_items = []
         for category, notes in sections.items():
@@ -111,7 +120,9 @@ class SignalExtractor:
     def _market_movers(self, raw_items: List[RawItem]) -> List[Dict[str, str]]:
         skill = self.skills.get("markets")
         if isinstance(skill, MarketsSkill):
-            market_items = [item for item in raw_items if item.category == "markets"]
+            market_items = [
+                item for item in raw_items if item.category == "markets" and item.is_relevant
+            ]
             return skill.extract_movers(market_items)
         return []
 
@@ -153,6 +164,7 @@ class SignalExtractor:
             ),
             schema_name="morning_brief_signals",
             schema=schema,
+            model=self.config.openai_signal_model,
             max_output_tokens=3600,
         )
         if not result:
@@ -211,7 +223,7 @@ class SignalExtractor:
             sections=sections,
             market_movers=original.market_movers,
             watchlist=watchlist or original.watchlist,
-            model_used=self.config.openai_model,
+            model_used=self.config.openai_signal_model,
             warnings=original.warnings,
         )
 

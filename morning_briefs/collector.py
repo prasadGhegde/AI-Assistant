@@ -11,12 +11,14 @@ from bs4 import BeautifulSoup
 
 from .config import AppConfig
 from .models import RawItem
+from .quality import NewsQualityFilter
 from .utils import clean_text, load_json, stable_id
 
 
 class NewsCollector:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
+        self.quality_filter = NewsQualityFilter(config)
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -73,22 +75,21 @@ class NewsCollector:
             if not excerpt:
                 excerpt = self._page_excerpt(url)
             freshness_hours = self._freshness_hours(published_dt)
-            output.append(
-                RawItem(
-                    id=stable_id(category, source.get("name", ""), headline, url),
-                    category=category,
-                    source_name=source.get("name", "Unknown source"),
-                    source_url=source.get("url", ""),
-                    headline=headline,
-                    url=url,
-                    excerpt=excerpt,
-                    published_at=published_dt.isoformat() if published_dt else None,
-                    collected_at=collected_at,
-                    tags=list(source.get("tags", [])),
-                    source_weight=float(source.get("source_weight", 1.0)),
-                    freshness_hours=freshness_hours,
-                )
+            item = RawItem(
+                id=stable_id(category, source.get("name", ""), headline, url),
+                category=category,
+                source_name=source.get("name", "Unknown source"),
+                source_url=source.get("url", ""),
+                headline=headline,
+                url=url,
+                excerpt=excerpt,
+                published_at=published_dt.isoformat() if published_dt else None,
+                collected_at=collected_at,
+                tags=list(source.get("tags", [])),
+                source_weight=float(source.get("source_weight", 1.0)),
+                freshness_hours=freshness_hours,
             )
+            output.append(self.quality_filter.apply(item))
         return output
 
     def _entry_datetime(self, entry: Dict[str, Any]) -> Optional[datetime]:
@@ -135,6 +136,9 @@ class NewsCollector:
         for item in items:
             key = item.url.split("?")[0].rstrip("/")
             existing = by_url.get(key)
-            if existing is None or item.source_weight > existing.source_weight:
+            if existing is None or (
+                item.quality_score + item.source_weight
+                > existing.quality_score + existing.source_weight
+            ):
                 by_url[key] = item
         return list(by_url.values())

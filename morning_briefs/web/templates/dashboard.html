@@ -3,94 +3,154 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Morning Brief</title>
+    <title>Operation Daybreak Tactical Console</title>
     <link rel="stylesheet" href="assets/dashboard.css">
   </head>
   <body>
     <script>
       window.MORNING_BRIEF = __BRIEFING_DATA__;
     </script>
-    <main class="shell">
-      <header class="topline">
-        <div>
-          <p class="eyebrow">Morning Brief</p>
-          <h1>Workday signal board</h1>
+
+    <main class="ops-shell">
+      <header class="ops-topbar">
+        <div class="op-title">
+          <span>Daily intel</span>
+          <strong id="operationName">Operation Daybreak</strong>
         </div>
-        <div class="stamp">
-          <span>Generated</span>
-          <strong>__GENERATED_AT__</strong>
+        <div class="phase-readout">
+          <span>Current pane</span>
+          <strong id="phaseReadout">Initializing</strong>
+        </div>
+        <div class="audio-command">
+          <button id="playButton" type="button">Stand by</button>
+          <div class="audio-status">
+            <span id="audioStatus">Preparing audio route</span>
+            <span id="musicStatus">Music armed</span>
+          </div>
+          <audio id="briefAudio" preload="auto" playsinline src="__AUDIO_SRC__"></audio>
+          <audio id="musicAudio" preload="auto" loop></audio>
         </div>
       </header>
 
-      <section class="matter-band">
-        <p class="eyebrow">What matters today</p>
-        <h2 id="matterLine"></h2>
+      <section class="briefing-grid">
+        <aside class="phase-rail" aria-label="Briefing phases">
+          <div class="rail-line"><span id="railProgress"></span></div>
+          <div id="phaseRail" class="phase-list"></div>
+        </aside>
+
+        <section class="screen-stack" aria-live="polite">
+          <article id="screen-greeting" class="brief-screen screen-greeting app-screen is-screen-active" data-screen="greeting">
+            <h1 id="greetingHeadline">Good morning.</h1>
+          </article>
+
+          <article id="screen-weather" class="brief-screen screen-weather app-screen" data-screen="weather">
+            <div class="screen-kicker">Weather window</div>
+            <div class="weather-brief">
+              <h2 id="weatherHeadline"></h2>
+              <p id="weatherAdvice"></p>
+            </div>
+            <div class="weather-ticks" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </article>
+
+          <article id="screen-news" class="brief-screen screen-news app-screen" data-screen="news">
+            <div class="news-command">
+              <div>
+                <div class="screen-kicker" id="categoryKicker">Intel sequence</div>
+                <h2 id="categoryTitle">Morning signal</h2>
+              </div>
+              <div id="storyCounter" class="story-counter">00 / 00</div>
+            </div>
+
+            <div class="intel-board">
+              <section id="activeClipping" class="active-clipping">
+                <div class="clip-meta">
+                  <span id="activeSource">Source pending</span>
+                  <span id="activeTime">Live cue</span>
+                </div>
+                <h3 id="activeHeadline">Ryan will bring each clipping into focus as the brief begins.</h3>
+                <div class="key-points">
+                  <article class="key-point key-point-primary">
+                    <span>Point 01</span>
+                    <strong id="activePointOne">Standing by for the first source-backed signal.</strong>
+                  </article>
+                  <article class="key-point">
+                    <span>Point 02</span>
+                    <strong id="activePointTwo">The implication will lock in as narration reaches the clipping.</strong>
+                  </article>
+                </div>
+                <div class="evidence-strip">
+                  <span>Source excerpt</span>
+                  <p id="activeExcerpt">The news pane is standing by for the first narrated item.</p>
+                </div>
+              </section>
+
+              <aside class="mission-column">
+                <div class="pane-label">Progression</div>
+                <div id="storyRail" class="story-rail"></div>
+                <div class="pane-label">Adjacent clippings</div>
+                <div id="supportStack" class="support-stack"></div>
+              </aside>
+            </div>
+          </article>
+
+          <article id="screen-watchlist" class="brief-screen screen-watchlist app-screen" data-screen="watchlist">
+            <div class="screen-kicker">Watch list</div>
+            <h2>Operational threads for today</h2>
+            <div id="watchList" class="watch-list"></div>
+          </article>
+
+          <article id="screen-closing_question" class="brief-screen screen-closing app-screen" data-screen="closing_question">
+            <div class="screen-kicker">Before I step back</div>
+            <h2 id="closingQuestion">Any questions on Operation Daybreak, Captain?</h2>
+            <form id="followupForm" class="followup-form">
+              <label for="followupInput">Typed follow-up</label>
+              <div>
+                <input id="followupInput" type="text" autocomplete="off" placeholder="Type one concise follow-up">
+                <button type="submit">Ask</button>
+              </div>
+            </form>
+            <div class="countdown">
+              <span id="countdownValue">10</span>
+              <p id="countdownMessage">Type a quick follow-up before the console closes.</p>
+            </div>
+          </article>
+        </section>
+
+        <aside class="source-dossier">
+          <div class="dossier-head">
+            <span>Source stack</span>
+            <strong id="sourceCount">0 items</strong>
+          </div>
+          <div id="sourceStack" class="source-stack"></div>
+          <div class="mission-clock">
+            <span>Generated</span>
+            <strong>__GENERATED_AT__</strong>
+          </div>
+          <div class="progress-shell" aria-label="Briefing progress">
+            <div id="progressBar" class="progress-bar"></div>
+          </div>
+        </aside>
       </section>
 
-      <section class="dashboard-grid">
-        <section class="panel globe-panel" aria-labelledby="geoTitle">
-          <div class="panel-head">
-            <p class="eyebrow">Geopolitics</p>
-            <h2 id="geoTitle">Hotspot panel</h2>
-          </div>
-          <div class="globe" aria-hidden="true">
-            <div class="longitude"></div>
-            <div class="latitude latitude-one"></div>
-            <div class="latitude latitude-two"></div>
-            <div id="hotspots"></div>
-          </div>
-          <div id="geoList" class="signal-list"></div>
-        </section>
-
-        <section class="panel radar-panel" aria-labelledby="techTitle">
-          <div class="panel-head">
-            <p class="eyebrow">Technology and AI</p>
-            <h2 id="techTitle">Trend radar</h2>
-          </div>
-          <div class="radar" aria-hidden="true">
-            <div class="sweep"></div>
-            <div id="radarPips"></div>
-          </div>
-          <div id="techList" class="signal-list"></div>
-        </section>
-
-        <section class="panel market-panel" aria-labelledby="marketTitle">
-          <div class="panel-head">
-            <p class="eyebrow">Stock market</p>
-            <h2 id="marketTitle">Heat map</h2>
-          </div>
-          <div id="heatMap" class="heat-map"></div>
-          <div class="movers">
-            <h3>Movers board</h3>
-            <div id="moversBoard"></div>
-          </div>
-        </section>
-
-        <aside class="script-panel" aria-labelledby="scriptTitle">
-          <div class="panel-head">
-            <p class="eyebrow">Narration</p>
-            <h2 id="scriptTitle">Final script</h2>
-          </div>
-          <div class="audio-row">
-            <button id="playButton" type="button">Play briefing</button>
-            <audio id="briefAudio" controls autoplay src="__AUDIO_SRC__"></audio>
+      <section class="script-dock">
+        <div class="script-head">
+          <div>
+            <p class="screen-kicker">Narration</p>
+            <h2>Script</h2>
           </div>
           <div class="script-meta">
             <span id="wordCount"></span>
             <span id="modelUsed"></span>
           </div>
-          <article id="scriptText" class="script-text"></article>
-        </aside>
-      </section>
-
-      <section class="watch-band" aria-labelledby="watchTitle">
-        <p class="eyebrow">Watch list</p>
-        <h2 id="watchTitle">Threads to revisit</h2>
-        <div id="watchList" class="watch-list"></div>
+        </div>
+        <article id="scriptText" class="script-text"></article>
       </section>
 
       <section id="warnings" class="warnings" aria-live="polite"></section>
     </main>
+
     <script src="assets/dashboard.js"></script>
   </body>
 </html>

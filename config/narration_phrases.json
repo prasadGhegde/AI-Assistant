@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "repeat_protection": {
+    "recent_limit": 5,
+    "protected_banks": [
+      "greetings",
+      "operation_names",
+      "intro_templates",
+      "intro_lines",
+      "weather_transitions",
+      "geopolitics_transitions",
+      "technology_transitions",
+      "market_transitions",
+      "watchlist_intros",
+      "closings",
+      "final_questions"
+    ]
+  },
+  "phrase_banks": {
+    "greetings": [
+      "Good day, Captain.",
+      "Good morning, Captain.",
+      "Greetings, Captain.",
+      "Captain, welcome back.",
+      "Good to see you, Captain."
+    ],
+    "operation_names": [
+      "Operation Daybreak",
+      "Operation Morning Star",
+      "Operation First Light",
+      "Operation Dawn Watch",
+      "Operation Sunrise Protocol"
+    ],
+    "intro_templates": [
+      "Welcome to the debriefing of {operation_name}.",
+      "You are now entering the debriefing for {operation_name}.",
+      "Initiating morning debrief for {operation_name}.",
+      "This is your morning briefing for {operation_name}."
+    ],
+    "intro_lines": [
+      "The signal is clean, the noise is contained, and the morning picture is coming into focus.",
+      "I have filtered the overnight feed down to the signals most useful for the day ahead.",
+      "The console is aligned, the sources are checked, and the useful signal is ready.",
+      "I will keep this concise, source-led, and tuned for action."
+    ],
+    "weather_transitions": [
+      "First, a quick read on the conditions outside.",
+      "Before the intelligence pass, a practical look at the weather.",
+      "We will start with the outside conditions, then move into the signal.",
+      "First checkpoint: weather, kit, and movement."
+    ],
+    "geopolitics_transitions": [
+      "Now to the global front, where the useful signal is diplomatic and operational.",
+      "The first intelligence pane is global, with emphasis on constructive movement.",
+      "On the geopolitical board, the strongest signal is the one with practical follow-through.",
+      "Turning to the world stage, the focus is on developments that can shape the workday."
+    ],
+    "technology_transitions": [
+      "The technology pane is next, with AI signal separated from noise.",
+      "On the technology front, I am watching the developments most likely to affect decisions.",
+      "The next pass is technology and AI, filtered for substance over spectacle.",
+      "Now to the AI and platform layer, where practical momentum matters most."
+    ],
+    "market_transitions": [
+      "The market board comes into view next, with attention on constructive risk signals.",
+      "For markets, the useful read is leadership, breadth, and what may carry into the open.",
+      "The financial pane is next, focused on signals that can shape positioning.",
+      "Now to the market front, where price action is useful only when the signal has depth."
+    ],
+    "watchlist_intros": [
+      "For the watch list, keep these operational threads close.",
+      "Before we close, these are the threads worth revisiting today.",
+      "Your watch list is short and practical.",
+      "These are the items I would keep on the console through midday."
+    ],
+    "closings": [
+      "That concludes today's debrief, Captain.",
+      "Mission briefing complete, Captain.",
+      "This concludes your morning operational summary.",
+      "Debrief complete. You are cleared for the day."
+    ],
+    "final_questions": [
+      "Any questions on the operation, Captain?",
+      "Would you like a deeper look at any front, Captain?",
+      "Any area you would like me to expand on, Captain?",
+      "Do you want a follow-up on any item from today's briefing?"
+    ]
+  }
+}

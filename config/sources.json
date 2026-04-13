@@ -5,28 +5,32 @@
       "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
       "kind": "rss",
       "source_weight": 1.0,
+      "quality_tier": "primary",
       "tags": ["world", "diplomacy", "security"]
     },
     {
       "name": "Associated Press World",
       "url": "https://apnews.com/hub/world-news?output=1",
       "kind": "rss",
-      "source_weight": 1.0,
+      "source_weight": 1.05,
+      "quality_tier": "primary",
       "tags": ["world", "breaking", "diplomacy"]
     },
     {
-      "name": "Al Jazeera",
-      "url": "https://www.aljazeera.com/xml/rss/all.xml",
+      "name": "DW World",
+      "url": "https://rss.dw.com/rdf/rss-en-world",
       "kind": "rss",
-      "source_weight": 0.88,
-      "tags": ["middle-east", "conflict", "global-south"]
+      "source_weight": 0.9,
+      "quality_tier": "primary",
+      "tags": ["world", "europe", "diplomacy"]
     },
     {
-      "name": "NPR World",
-      "url": "https://feeds.npr.org/1004/rss.xml",
+      "name": "UN News",
+      "url": "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
       "kind": "rss",
       "source_weight": 0.82,
-      "tags": ["world", "analysis"]
+      "quality_tier": "institutional",
+      "tags": ["un", "conflict", "humanitarian", "diplomacy"]
     }
   ],
   "technology_ai": [
@@ -34,29 +38,41 @@
       "name": "TechCrunch AI",
       "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
       "kind": "rss",
-      "source_weight": 0.94,
+      "source_weight": 0.88,
+      "quality_tier": "specialist",
       "tags": ["ai", "startups", "funding"]
     },
     {
-      "name": "The Verge AI",
-      "url": "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",
+      "name": "The Verge",
+      "url": "https://www.theverge.com/rss/index.xml",
       "kind": "rss",
-      "source_weight": 0.9,
+      "source_weight": 0.82,
+      "quality_tier": "specialist",
       "tags": ["ai", "platforms", "consumer-tech"]
     },
     {
       "name": "MIT Technology Review",
       "url": "https://www.technologyreview.com/feed/",
       "kind": "rss",
-      "source_weight": 0.9,
+      "source_weight": 1.0,
+      "quality_tier": "specialist",
       "tags": ["research", "ai", "policy"]
     },
     {
       "name": "OpenAI News",
       "url": "https://openai.com/news/rss.xml",
       "kind": "rss",
-      "source_weight": 0.84,
+      "source_weight": 0.86,
+      "quality_tier": "primary",
       "tags": ["ai", "openai", "models"]
+    },
+    {
+      "name": "Ars Technica",
+      "url": "https://feeds.arstechnica.com/arstechnica/technology-lab",
+      "kind": "rss",
+      "source_weight": 0.84,
+      "quality_tier": "specialist",
+      "tags": ["technology", "security", "policy"]
     }
   ],
   "markets": [
@@ -65,27 +81,39 @@
       "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html",
       "kind": "rss",
       "source_weight": 0.96,
+      "quality_tier": "market",
       "tags": ["stocks", "markets", "macro"]
+    },
+    {
+      "name": "Bloomberg Markets",
+      "url": "https://feeds.bloomberg.com/markets/news.rss",
+      "kind": "rss",
+      "source_weight": 0.98,
+      "quality_tier": "market",
+      "tags": ["stocks", "markets", "macro", "global"]
     },
     {
       "name": "MarketWatch MarketPulse",
       "url": "https://feeds.content.dowjones.io/public/rss/mw_marketpulse",
       "kind": "rss",
       "source_weight": 0.9,
+      "quality_tier": "market",
       "tags": ["stocks", "market-pulse"]
     },
     {
       "name": "Yahoo Finance",
       "url": "https://finance.yahoo.com/news/rssindex",
       "kind": "rss",
-      "source_weight": 0.82,
+      "source_weight": 0.76,
+      "quality_tier": "market",
       "tags": ["stocks", "earnings", "movers"]
     },
     {
       "name": "Federal Reserve Press Releases",
       "url": "https://www.federalreserve.gov/feeds/press_all.xml",
       "kind": "rss",
-      "source_weight": 0.75,
+      "source_weight": 0.82,
+      "quality_tier": "institutional",
       "tags": ["rates", "macro", "policy"]
     }
   ]

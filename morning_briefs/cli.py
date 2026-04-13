@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import webbrowser
 from pathlib import Path
 
 from .config import load_config
@@ -23,6 +22,11 @@ def main(argv=None) -> None:
     run_parser.add_argument("--skip-tts", action="store_true", help="Do not generate MP3.")
     run_parser.add_argument("--play", action="store_true", help="Play the MP3 after generation.")
     run_parser.add_argument("--serve", action="store_true", help="Start the local dashboard.")
+    run_parser.add_argument(
+        "--no-open",
+        action="store_true",
+        help="Do not open the browser after generating the dashboard.",
+    )
     run_parser.add_argument("--host", default="127.0.0.1")
     run_parser.add_argument("--port", type=int, default=8765)
 
@@ -46,16 +50,21 @@ def main(argv=None) -> None:
             )
             sys.exit(2)
 
-        result = run_once(config, skip_tts=args.skip_tts, play=args.play)
+        result = run_once(
+            config,
+            skip_tts=args.skip_tts,
+            play=args.play,
+            open_browser=not args.no_open,
+        )
         print(f"Raw sources: {result.latest_raw_path}")
         print(f"Extracted notes: {result.latest_notes_path}")
+        print(f"Weather: {result.latest_weather_path}")
         print(f"Script: {result.latest_script_path}")
         print(f"Dashboard: {result.latest_dashboard_path}")
         if result.latest_audio_path:
             print(f"Audio: {result.latest_audio_path}")
         for warning in result.warnings:
             print(f"Warning: {warning}")
-        webbrowser.open(f"file://{result.latest_dashboard_path}")
         if args.serve:
             try:
                 from .server import serve

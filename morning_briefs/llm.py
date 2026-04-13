@@ -46,6 +46,7 @@ class OpenAIModelClient:
         user: str,
         schema_name: str,
         schema: Dict[str, Any],
+        model: Optional[str] = None,
         max_output_tokens: int = 3000,
     ) -> Optional[Dict[str, Any]]:
         client = self.client
@@ -53,7 +54,7 @@ class OpenAIModelClient:
             return None
         try:
             response = client.responses.create(
-                model=self.config.openai_model,
+                model=model or self.config.openai_model,
                 input=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
@@ -78,6 +79,7 @@ class OpenAIModelClient:
         *,
         system: str,
         user: str,
+        model: Optional[str] = None,
         max_output_tokens: int = 3800,
     ) -> Optional[str]:
         client = self.client
@@ -85,7 +87,7 @@ class OpenAIModelClient:
             return None
         try:
             response = client.responses.create(
-                model=self.config.openai_model,
+                model=model or self.config.openai_model,
                 input=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},

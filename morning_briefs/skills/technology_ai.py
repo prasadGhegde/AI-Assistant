@@ -35,6 +35,6 @@ class TechnologyAISkill(DomainSkill):
 
     def why_it_matters(self, item: RawItem, subskills) -> str:
         return (
-            "Why it matters today: it may change what tools teams can use, what infrastructure "
-            "gets scarce, and which AI risks need a same-day decision."
+            "A useful AI development can change what tools teams can use, what infrastructure "
+            "gets prioritized, and which product decisions deserve same-day attention."
         )

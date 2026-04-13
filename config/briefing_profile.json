@@ -1,45 +1,96 @@
 {
-  "target_total_words": [1000, 1100],
-  "target_runtime_minutes": 8,
+  "target_total_words": [850, 920],
+  "target_runtime_minutes": 6.33,
   "sections": [
     {
-      "id": "intro",
-      "label": "Intro",
-      "target_seconds": 45,
-      "target_words": [95, 120]
+      "id": "greeting",
+      "label": "Greeting",
+      "target_seconds": 28,
+      "target_words": [70, 85]
+    },
+    {
+      "id": "weather",
+      "label": "Weather",
+      "target_seconds": 24,
+      "target_words": [45, 60],
+      "required_close": "Make the wear/carry advice useful and natural."
     },
     {
       "id": "geopolitics",
       "label": "Geopolitics",
-      "target_seconds": 120,
-      "target_words": [245, 290],
-      "required_close": "Why it matters today"
+      "target_seconds": 78,
+      "target_words": [185, 210],
+      "required_close": "Close with the practical implication naturally, without a label."
     },
     {
       "id": "technology_ai",
       "label": "Technology and AI",
-      "target_seconds": 120,
-      "target_words": [245, 290],
-      "required_close": "Why it matters today"
+      "target_seconds": 78,
+      "target_words": [185, 210],
+      "required_close": "Close with the practical implication naturally, without a label."
     },
     {
       "id": "markets",
       "label": "Stock market",
-      "target_seconds": 120,
-      "target_words": [245, 290],
-      "required_close": "Why it matters today"
+      "target_seconds": 78,
+      "target_words": [185, 210],
+      "required_close": "Close with the practical implication naturally, without a label."
     },
     {
       "id": "watchlist",
       "label": "Watch list for today",
-      "target_seconds": 60,
-      "target_words": [120, 160],
-      "required_close": "Why it matters today"
+      "target_seconds": 45,
+      "target_words": [95, 125],
+      "required_close": "Turn the briefing into a few concrete threads to revisit; do not recap the whole briefing."
+    },
+    {
+      "id": "closing_question",
+      "label": "Closing question",
+      "target_seconds": 4,
+      "target_words": [5, 9],
+      "required_close": "Ask only: Any questions on Operation Daybreak, Captain?"
     }
   ],
   "style": {
-    "voice": "conversational, concise, work-morning focused",
-    "avoid": ["bullet lists in spoken sections", "repeating the same story across categories", "stale stories unless context is essential"],
+    "voice": "Ryan system voice when available; premium, cinematic, energetic, warm, concise, lightly British in cadence without imitating any copyrighted character",
+    "story_tone": "good-news-only: constructive, useful, promising, forward-looking, high-signal developments without gloomy or panic-heavy narration",
+    "avoid": ["spoken headings", "label-like transitions", "bullet lists in spoken sections", "repeating the same story across categories", "stale stories unless context is essential", "corny sci-fi language", "generic AI filler", "why this matters labels", "this is important because", "doom-heavy news", "market panic", "bad-news framing"],
     "date_policy": "Use exact dates when relevant and prefer events published in the last 24 hours."
+  },
+  "personal_character": {
+    "identity": {
+      "background": "Indian expat based in Germany",
+      "role": "Virtual Commissioning Engineer at BMW",
+      "working_style": [
+        "systems thinking",
+        "engineering-first",
+        "risk-aware and practical",
+        "interested in AI and automation"
+      ]
+    },
+    "investment_focus": {
+      "core_tech": [
+        "Nvidia",
+        "Microsoft",
+        "Meta"
+      ],
+      "materials_and_energy": [
+        "Lynas Rare Earths",
+        "energy cluster"
+      ],
+      "preferred_lens": [
+        "second-order effects",
+        "policy-to-market transmission",
+        "supply chain and compute bottlenecks",
+        "execution risk versus hype"
+      ]
+    },
+    "output_preferences": {
+      "ask_for": [
+        "what everyone may be missing",
+        "what could go wrong even in optimistic markets",
+        "cross-domain links from geopolitics and AI into portfolio impact"
+      ]
+    }
   }
 }

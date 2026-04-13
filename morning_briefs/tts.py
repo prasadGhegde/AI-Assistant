@@ -29,20 +29,53 @@ class SpeechSynthesizer:
         if self.config.openai_project_id:
             kwargs["project"] = self.config.openai_project_id
         client = OpenAI(**kwargs)
+        voice_order = [self.config.openai_tts_voice]
+        fallback = self.config.openai_tts_fallback_voice
+        if (
+            self.config.openai_tts_allow_fallback
+            and fallback
+            and fallback != self.config.openai_tts_voice
+        ):
+            voice_order.append(fallback)
+
+        last_error: Optional[Exception] = None
+        for voice in voice_order:
+            try:
+                self._synthesize_with_voice(client, spoken_text, output_path, voice)
+                if voice != self.config.openai_tts_voice:
+                    warnings.append(
+                        f"OpenAI TTS voice '{self.config.openai_tts_voice}' was not accepted; "
+                        f"used fallback voice '{voice}' for this whole audio clip."
+                    )
+                return output_path, warnings
+            except Exception as exc:
+                last_error = exc
+                try:
+                    output_path.unlink()
+                except FileNotFoundError:
+                    pass
+
+        warnings.append(f"OpenAI speech generation failed: {last_error}")
+        return None, warnings
+
+    def _synthesize_with_voice(
+        self,
+        client,
+        spoken_text: str,
+        output_path: Path,
+        voice: str,
+    ) -> None:
         chunks = chunk_for_tts(spoken_text)
         part_paths = []
         try:
             for index, chunk in enumerate(chunks, start=1):
                 part_path = output_path.with_suffix(f".part{index}.mp3")
-                self._stream_chunk(client, chunk, part_path)
+                self._stream_chunk(client, chunk, part_path, voice=voice)
                 part_paths.append(part_path)
             with output_path.open("wb") as output:
                 for part_path in part_paths:
                     with part_path.open("rb") as part:
                         output.write(part.read())
-        except Exception as exc:
-            warnings.append(f"OpenAI speech generation failed: {exc}")
-            return None, warnings
         finally:
             for part_path in part_paths:
                 try:
@@ -50,19 +83,14 @@ class SpeechSynthesizer:
                 except FileNotFoundError:
                     pass
 
-        return output_path, warnings
-
-    def _stream_chunk(self, client, chunk: str, output_path: Path) -> None:
+    def _stream_chunk(self, client, chunk: str, output_path: Path, *, voice: str) -> None:
         kwargs = {
             "model": self.config.openai_tts_model,
-            "voice": self.config.openai_tts_voice,
+            "voice": voice,
             "input": chunk,
             "response_format": "mp3",
         }
-        instructions = (
-            "Read like a calm, sharp work morning briefing. Conversational, clear, "
-            "measured pace. Give the 'Why it matters today' lines a little emphasis."
-        )
+        instructions = self.config.openai_tts_instructions
         try:
             with client.audio.speech.with_streaming_response.create(
                 **kwargs, instructions=instructions

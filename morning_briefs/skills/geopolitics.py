@@ -36,6 +36,6 @@ class GeopoliticsSkill(DomainSkill):
 
     def why_it_matters(self, item: RawItem, subskills) -> str:
         return (
-            "Why it matters today: the story can move risk appetite, supply-chain assumptions, "
+            "A constructive diplomatic signal can steady risk appetite, supply-chain assumptions, "
             "and executive attention before the workday is fully underway."
         )

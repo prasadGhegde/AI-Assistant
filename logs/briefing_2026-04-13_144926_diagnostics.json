@@ -1,0 +1,66 @@
+{
+  "accepted_article_counts": {
+    "geopolitics": 12,
+    "markets": 18,
+    "technology_ai": 10
+  },
+  "extracted_note_counts": {
+    "geopolitics": 2,
+    "markets": 2,
+    "technology_ai": 2
+  },
+  "final_script_section_words": {
+    "closing_question": 12,
+    "geopolitics": 184,
+    "greeting": 94,
+    "markets": 199,
+    "technology_ai": 177,
+    "watchlist": 172,
+    "weather": 59
+  },
+  "final_script_word_count": 897,
+  "generated_at": "2026-04-13T14:49:26.253837+02:00",
+  "narration_plan": {
+    "closing": "That concludes today's debrief, Captain.",
+    "closing_line": "That concludes today's debrief, Captain. Any questions on the operation, Captain?",
+    "final_question": "Any questions on the operation, Captain?",
+    "geopolitics_transition": "On the geopolitical board, the strongest signal is the one with practical follow-through.",
+    "greeting": "Greetings, Captain.",
+    "intro_line": "The signal is clean, the noise is contained, and the morning picture is coming into focus.",
+    "intro_template": "This is your morning briefing for {operation_name}.",
+    "market_transition": "The financial pane is next, focused on signals that can shape positioning.",
+    "opening_line": "Greetings, Captain. This is your morning briefing for Operation Dawn Watch.",
+    "operation_name": "Operation Dawn Watch",
+    "technology_transition": "On the technology front, I am watching the developments most likely to affect decisions.",
+    "watchlist_intro": "Before we close, these are the threads worth revisiting today.",
+    "weather_transition": "Before the intelligence pass, a practical look at the weather."
+  },
+  "raw_article_counts": {
+    "geopolitics": 30,
+    "markets": 50,
+    "technology_ai": 50
+  },
+  "rejected_article_counts": {
+    "geopolitics": 18,
+    "markets": 32,
+    "technology_ai": 40
+  },
+  "voice_default_preset": "test_radio_echo_strong1",
+  "voice_final_paths": {
+    "test_radio_echo_strong1": "/Users/prasadhegde/Documents/MorningBriefs/output/audio/briefing_2026-04-13_144926_voice_01_test_radio_echo_strong1_final.mp3"
+  },
+  "voice_variant_paths": {
+    "test_radio_echo_strong1": "/Users/prasadhegde/Documents/MorningBriefs/output/audio/briefing_2026-04-13_144926_voice_01_test_radio_echo_strong1.mp3"
+  },
+  "warnings": [
+    "Script section 'greeting' was sparse (0 words); repaired from extracted source notes.",
+    "Script section 'weather' was sparse (0 words); repaired from extracted source notes.",
+    "Script section 'geopolitics' was sparse (0 words); repaired from extracted source notes.",
+    "Script section 'technology_ai' was sparse (0 words); repaired from extracted source notes.",
+    "Script section 'markets' was sparse (0 words); repaired from extracted source notes.",
+    "Script section 'watchlist' was sparse (0 words); repaired from extracted source notes.",
+    "OpenAI TTS voice 'ryan' was not accepted; used fallback voice 'cedar' for this whole audio clip.",
+    "Voice variants saved: /Users/prasadhegde/Documents/MorningBriefs/output/audio/briefing_2026-04-13_144926_voice_01_test_radio_echo_strong1.mp3",
+    "Final mixed voice variants saved: /Users/prasadhegde/Documents/MorningBriefs/output/audio/briefing_2026-04-13_144926_voice_01_test_radio_echo_strong1_final.mp3"
+  ]
+}

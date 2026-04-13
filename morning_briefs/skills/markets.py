@@ -42,7 +42,7 @@ class MarketsSkill(DomainSkill):
 
     def why_it_matters(self, item: RawItem, subskills) -> str:
         return (
-            "Why it matters today: it can set the tone for risk, cash decisions, and which "
+            "A constructive market signal can set the tone for risk, cash decisions, and which "
             "names deserve a closer look before the market narrative hardens."
         )
 
