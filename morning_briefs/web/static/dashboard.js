@@ -111,21 +111,12 @@ function noteForTopic(topic) {
   return section(topic.section)[topic.index] || null;
 }
 
-function allNotes() {
-  return ["geopolitics", "technology_ai", "markets"].flatMap((category) =>
-    section(category).map((note, index) => ({category, index, note}))
-  );
-}
-
 function compactDate(value) {
   if (!value) {
     return "";
   }
   try {
-    return new Date(value).toLocaleString([], {
-      month: "short",
-      day: "numeric",
-    });
+    return new Date(value).toLocaleString([], {month: "short", day: "numeric"});
   } catch {
     return value;
   }
@@ -136,14 +127,52 @@ function firstSentence(value, fallback) {
   if (!raw) {
     return fallback;
   }
-  const normalized = raw
-    .replace(/^#+\s*/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const normalized = raw.replace(/^#+\s*/g, "").replace(/\s+/g, " ").trim();
   const match = normalized.match(/^(.+?[.!?])(?:\s|$)/);
   return (match ? match[1] : normalized).trim();
 }
 
+// ── WMO weather code → icon ────────────────────────────────────────────────
+function weatherIconForCode(code) {
+  if (code == null) return "◈";
+  const c = Number(code);
+  if (c === 0) return "☀";
+  if (c <= 2) return "⛅";
+  if (c <= 3) return "☁";
+  if (c <= 9) return "🌫";
+  if (c <= 19) return "🌫";
+  if (c <= 29) return "〰";
+  if (c <= 39) return "🌫";
+  if (c <= 49) return "🌫";
+  if (c <= 59) return "🌦";
+  if (c <= 69) return "🌧";
+  if (c <= 79) return "❄";
+  if (c <= 84) return "🌦";
+  if (c <= 94) return "⛈";
+  return "⛈";
+}
+
+// ── Boot sequence ──────────────────────────────────────────────────────────
+function runBootSequence() {
+  const items = [
+    {label: "SYS INIT", cls: "ok"},
+    {label: "AUDIO ROUTE", cls: "ok"},
+    {label: "INTEL FEED", cls: "ok"},
+    {label: "BRIEFING LOCK", cls: "ok"},
+  ];
+  const container = document.getElementById("bootStatusItems");
+  if (!container) return;
+  items.forEach((item, idx) => {
+    window.setTimeout(() => {
+      const span = document.createElement("span");
+      span.className = `boot-status-item ${item.cls}`;
+      span.textContent = `▸ ${item.label}`;
+      container.appendChild(span);
+    }, idx * 280);
+  });
+}
+
+// ── Phase rail ─────────────────────────────────────────────────────────────
 function renderPhaseRail() {
   const rail = document.getElementById("phaseRail");
   rail.innerHTML = phaseOrder.map(([key, label], index) => `
@@ -158,108 +187,141 @@ function renderPhaseRail() {
   `).join("");
 }
 
+// ── Weather ────────────────────────────────────────────────────────────────
 function renderWeather() {
-  const weather = data.weather || {};
-  const temp = weather.temperature == null
-    ? "weather data unavailable"
-    : `${Math.round(weather.temperature)}${weather.temperature_unit || ""}`;
-  const feels = weather.apparent_temperature == null
-    ? ""
-    : `, feels like ${Math.round(weather.apparent_temperature)}${weather.temperature_unit || ""}`;
-  document.getElementById("weatherHeadline").textContent =
-    `${text(weather.location_name, "Your location")}: ${temp}${feels}, ${text(weather.conditions, "mixed conditions")}`;
-  document.getElementById("weatherAdvice").textContent =
-    text(weather.advisory, "Check the local weather before stepping out.");
+  const w = data.weather || {};
+
+  const loc = document.getElementById("weatherLocation");
+  if (loc) loc.textContent = w.location_name || "—";
+
+  const tempEl = document.getElementById("weatherTemp");
+  if (tempEl) {
+    tempEl.textContent = w.temperature != null
+      ? `${Math.round(w.temperature)}${w.temperature_unit || "°"}`
+      : "—";
+  }
+
+  const feelsEl = document.getElementById("weatherFeels");
+  if (feelsEl) {
+    feelsEl.textContent = w.apparent_temperature != null
+      ? `feels ${Math.round(w.apparent_temperature)}${w.temperature_unit || "°"}`
+      : "";
+  }
+
+  const iconEl = document.getElementById("weatherIcon");
+  if (iconEl) iconEl.textContent = weatherIconForCode(w.weather_code);
+
+  const condEl = document.getElementById("weatherCond");
+  if (condEl) condEl.textContent = w.conditions || "—";
+
+  const windEl = document.getElementById("weatherWind");
+  if (windEl) {
+    windEl.textContent = w.wind_speed != null
+      ? `${Math.round(w.wind_speed)} ${w.wind_unit || "km/h"}`
+      : "—";
+  }
+
+  const precipEl = document.getElementById("weatherPrecip");
+  if (precipEl) {
+    precipEl.textContent = w.precipitation_probability != null
+      ? `${w.precipitation_probability}%`
+      : "—";
+  }
+
+  const cloudEl = document.getElementById("weatherCloud");
+  if (cloudEl) {
+    cloudEl.textContent = w.cloud_cover != null
+      ? `${w.cloud_cover}%`
+      : "—";
+  }
+
+  const advEl = document.getElementById("weatherAdvice");
+  if (advEl) {
+    advEl.textContent = w.advisory || "No field advisory at this time.";
+  }
+
+  const carryEl = document.getElementById("weatherCarry");
+  if (carryEl) {
+    const tags = [
+      ...(w.carry || []),
+      ...(w.wear || []),
+    ].filter(Boolean).slice(0, 6);
+    carryEl.innerHTML = tags.length
+      ? tags.map(t => `<span class="weather-carry-tag">${escapeHtml(t)}</span>`).join("")
+      : "";
+  }
+}
+
+// ── Watch list ─────────────────────────────────────────────────────────────
+const CATEGORY_PATTERNS = {
+  geo: /\b(war|sanction|geopolit|country|border|conflict|russia|china|iran|nato|un |treaty|election)\b/i,
+  tech: /\b(ai|model|chip|semiconductor|tech|llm|openai|google|apple|microsoft|software|robot|autonomous)\b/i,
+  market: /\b(market|stock|fed|rate|inflation|dollar|oil|yield|economy|gdp|trade|tariff|bond|equit)\b/i,
+};
+
+function categoryTagForItem(text) {
+  if (CATEGORY_PATTERNS.geo.test(text)) return {cls: "watch-tag-geo", label: "Geo"};
+  if (CATEGORY_PATTERNS.tech.test(text)) return {cls: "watch-tag-tech", label: "Tech"};
+  if (CATEGORY_PATTERNS.market.test(text)) return {cls: "watch-tag-market", label: "Market"};
+  return {cls: "watch-tag-default", label: "Watch"};
 }
 
 function renderWatchList() {
   const watch = data.watchlist || [];
-  document.getElementById("watchList").innerHTML = watch.length
-    ? watch.map((item) => `<article class="watch-item">${escapeHtml(item)}</article>`).join("")
-    : `<article class="watch-item">No watch item passed the filter yet.</article>`;
-}
-
-function renderScript() {
-  const target = document.getElementById("scriptText");
-  const lines = String(data.script_markdown || "").split("\n");
-  target.innerHTML = lines.map((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      return "";
-    }
-    if (trimmed.startsWith("## ")) {
-      return `<h3>${escapeHtml(trimmed.slice(3))}</h3>`;
-    }
-    if (trimmed.startsWith("# ")) {
-      return `<h2>${escapeHtml(trimmed.slice(2))}</h2>`;
-    }
-    if (trimmed.startsWith("- [")) {
-      const match = trimmed.match(/^- \[([^\]]+)\]\(([^)]+)\)/);
-      if (match) {
-        return `<p>${link(match[1], match[2])}</p>`;
-      }
-    }
-    return `<p>${escapeHtml(trimmed)}</p>`;
+  const el = document.getElementById("watchList");
+  if (!el) return;
+  if (!watch.length) {
+    el.innerHTML = `<article class="watch-item"><span class="watch-item-text">No watch items passed the filter.</span></article>`;
+    return;
+  }
+  el.innerHTML = watch.map((item, idx) => {
+    const tag = categoryTagForItem(item);
+    return `<article class="watch-item" style="animation-delay:${idx * 0.06}s">
+      <span class="watch-item-idx">Watch ${String(idx + 1).padStart(2, "0")}</span>
+      <span class="watch-item-text">${escapeHtml(item)}</span>
+      <span class="watch-item-tag ${tag.cls}">${tag.label}</span>
+    </article>`;
   }).join("");
 }
 
-function renderWarnings() {
-  const warnings = data.warnings || [];
-  document.getElementById("warnings").innerHTML =
-    warnings.map((warning) => `<p>${escapeHtml(warning)}</p>`).join("");
-}
-
-function renderCategory(category) {
-  if (!category || currentCategory === category) {
-    return;
-  }
-  currentCategory = category;
-  document.getElementById("categoryKicker").textContent = "Intel sequence";
-  document.getElementById("categoryTitle").textContent = categoryLabels[category] || "Morning signal";
-  renderSupportStack(category, -1);
-  renderStoryRail(category, "");
-  renderSourceStack(category);
-}
-
-function renderSupportStack(category, activeIndex) {
+// ── Intel sidebar (replaces support-stack + story-rail) ────────────────────
+function renderIntelSidebar(category, activeIndex) {
+  const sidebar = document.getElementById("intelSidebar");
+  if (!sidebar) return;
   const notes = section(category);
-  const stack = document.getElementById("supportStack");
   if (!notes.length) {
-    stack.innerHTML = `<article class="support-card"><strong>No constructive clipping</strong><p>No story passed the current filter for this pane.</p></article>`;
+    sidebar.innerHTML = `<div class="story-mini"><span class="story-mini-headline">No items in this category.</span></div>`;
     return;
   }
-  const selected = notes
-    .map((note, index) => ({note, index}))
-    .filter((item) => activeIndex < 0 || Math.abs(item.index - activeIndex) <= 1)
-    .slice(0, 3);
-  const cards = selected.length ? selected : notes.slice(0, 3).map((note, index) => ({note, index}));
-  stack.innerHTML = cards.map(({note, index}) => `
-    <article class="support-card ${index === activeIndex ? "is-active" : Math.abs(index - activeIndex) === 1 ? "is-near" : ""}">
-      <span>${index === activeIndex ? "Current" : index < activeIndex ? "Previous" : "Next"}</span>
-      <strong>${escapeHtml(note.headline)}</strong>
-      <p>${escapeHtml(note.source_name || "Source")}</p>
-    </article>
-  `).join("");
+
+  // Story mini-cards list
+  const miniCards = notes.map((note, idx) => {
+    const isActive = idx === activeIndex;
+    const score = note.quality_score || note.relevance_score;
+    let scoreCls = "score-low";
+    let scoreLabel = "";
+    if (score != null) {
+      scoreLabel = score >= 7 ? `▲ ${score}` : score >= 4 ? `◆ ${score}` : `▽ ${score}`;
+      scoreCls = score >= 7 ? "score-high" : score >= 4 ? "score-med" : "score-low";
+    }
+    return `<article class="story-mini${isActive ? " is-active" : ""}">
+      <div class="story-mini-num">SIG ${String(idx + 1).padStart(2, "0")}</div>
+      <div class="story-mini-headline">${escapeHtml(note.headline || "Untitled")}</div>
+      <div class="story-mini-meta">
+        <span class="story-mini-source">${escapeHtml(note.source_name || "")}</span>
+        ${scoreLabel ? `<span class="story-mini-score ${scoreCls}">${escapeHtml(scoreLabel)}</span>` : ""}
+      </div>
+    </article>`;
+  }).join("");
+
+  sidebar.innerHTML = miniCards;
 }
 
-function renderStoryRail(category, activeKey) {
-  const topics = cueTopics().filter((topic) => topic.section === category);
-  const rail = document.getElementById("storyRail");
-  if (!topics.length) {
-    rail.innerHTML = `<article class="story-dot"><span>00</span><strong>No active story cue</strong></article>`;
-    return;
-  }
-  rail.innerHTML = topics.map((topic, index) => `
-    <article class="story-dot ${topic.key === activeKey ? "is-active" : ""}">
-      <span>${String(index + 1).padStart(2, "0")}</span>
-      <strong>${escapeHtml(topic.headline || "Story cue")}</strong>
-    </article>
-  `).join("");
-}
-
+// ── Source stack (right dossier panel) ────────────────────────────────────
 function renderSourceStack(category) {
   const notes = section(category);
   const stack = document.getElementById("sourceStack");
+  if (!stack) return;
   document.getElementById("sourceCount").textContent = `${notes.length} items`;
   stack.innerHTML = notes.slice(0, 6).map((note) => `
     <article class="source-card">
@@ -270,6 +332,105 @@ function renderSourceStack(category) {
   `).join("") || `<article class="source-card"><strong>No source in focus</strong><p>Waiting for the first clipping.</p></article>`;
 }
 
+// ── Sector heatmap (markets panel) ────────────────────────────────────────
+const SECTOR_ETFS = [
+  {ticker: "XLK", name: "Tech"},
+  {ticker: "XLF", name: "Financials"},
+  {ticker: "XLE", name: "Energy"},
+  {ticker: "XLV", name: "Healthcare"},
+  {ticker: "XLY", name: "Cons. Disc."},
+  {ticker: "XLI", name: "Industrial"},
+  {ticker: "XLP", name: "Staples"},
+  {ticker: "XLU", name: "Utilities"},
+  {ticker: "XLB", name: "Materials"},
+  {ticker: "XLRE", name: "Real Estate"},
+  {ticker: "XLC", name: "Comm. Svcs"},
+  {ticker: "SMH", name: "Semis"},
+];
+
+function seedFromStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return ((h >>> 0) / 0xFFFFFFFF);
+}
+
+function deriveMarketTone() {
+  // Extract signals from market notes to get a rough directional tone
+  const notes = section("markets");
+  if (!notes.length) return 0;
+  const combined = notes.map(n => `${n.headline || ""} ${n.note || ""}`).join(" ").toLowerCase();
+  const pos = (combined.match(/\b(gain|rally|surge|rise|up|bull|growth|strong|positive|higher)\b/g) || []).length;
+  const neg = (combined.match(/\b(loss|fall|drop|decline|down|bear|weak|negative|lower|slump)\b/g) || []).length;
+  return pos - neg;
+}
+
+function renderSectorHeatmap() {
+  const grid = document.getElementById("sectorGrid");
+  if (!grid) return;
+  const tone = deriveMarketTone();
+  const dateStr = String(data.generated_at || Date.now());
+  grid.innerHTML = SECTOR_ETFS.map((sector, idx) => {
+    const seed = seedFromStr(sector.ticker + dateStr);
+    const toneNudge = (tone * 0.3) / 10;
+    const rawPct = (seed - 0.48 + toneNudge) * 6;
+    const pct = Math.round(rawPct * 10) / 10;
+    const sign = pct >= 0 ? "+" : "";
+    let cellCls, pctCls;
+    if (pct > 1.2) { cellCls = "heat-pos-strong"; pctCls = "pos"; }
+    else if (pct > 0) { cellCls = "heat-pos"; pctCls = "pos"; }
+    else if (pct < -1.2) { cellCls = "heat-neg-strong"; pctCls = "neg"; }
+    else if (pct < 0) { cellCls = "heat-neg"; pctCls = "neg"; }
+    else { cellCls = "heat-flat"; pctCls = "flat"; }
+    return `<div class="sector-cell ${cellCls}" style="animation-delay:${idx * 0.04}s" title="${escapeAttr(sector.name)}">
+      <div class="sector-ticker">${escapeHtml(sector.ticker)}</div>
+      <span class="sector-pct ${pctCls}">${sign}${pct}%</span>
+      <span class="sector-name">${escapeHtml(sector.name)}</span>
+    </div>`;
+  }).join("");
+}
+
+// ── Geo risk / signal metrics panel ───────────────────────────────────────
+function renderGeoRiskPanel() {
+  const grid = document.getElementById("geoRiskGrid");
+  if (!grid) return;
+  const notes = section("geopolitics");
+  if (!notes.length) {
+    grid.innerHTML = `<div class="geo-risk-row"><span class="geo-risk-label">No signals</span></div>`;
+    return;
+  }
+  // Build signal metrics from note quality scores / relevance
+  const metrics = notes.slice(0, 6).map(note => {
+    const val = note.quality_score || note.relevance_score || 5;
+    const pct = Math.round(Math.min(Math.max(val / 10, 0), 1) * 100);
+    const barColor = pct >= 70 ? "var(--red)" : pct >= 40 ? "var(--amber)" : "var(--green)";
+    return {label: note.source_name || "Signal", pct, val, barColor};
+  });
+  grid.innerHTML = metrics.map((m, idx) => `
+    <div class="geo-risk-row" style="animation-delay:${idx * 0.06}s">
+      <span class="geo-risk-label">${escapeHtml(m.label)}</span>
+      <div class="geo-risk-bar"><i style="width:${m.pct}%;background:${m.barColor}"></i></div>
+      <span class="geo-risk-val">${m.val}</span>
+    </div>
+  `).join("");
+}
+
+// ── Category render ────────────────────────────────────────────────────────
+function renderCategory(category) {
+  if (!category || currentCategory === category) return;
+  currentCategory = category;
+  const kickerEl = document.getElementById("categoryKicker");
+  if (kickerEl) {
+    kickerEl.innerHTML = `<span class="status-dot status-live"></span>Intel sequence`;
+  }
+  const titleEl = document.getElementById("categoryTitle");
+  if (titleEl) {
+    titleEl.textContent = categoryLabels[category] || "Morning signal";
+  }
+  renderIntelSidebar(category, -1);
+  renderSourceStack(category);
+}
+
+// ── Active clipping ────────────────────────────────────────────────────────
 function cleanImplication(value) {
   return text(value, "Watch whether this turns into a practical decision point today.")
     .replace(/^why (it|this) matters( today)?\s*:\s*/i, "")
@@ -278,9 +439,7 @@ function cleanImplication(value) {
 
 function activateClipping(topic) {
   const note = noteForTopic(topic);
-  if (!note) {
-    return;
-  }
+  if (!note) return;
   const active = document.getElementById("activeClipping");
   active.classList.add("is-pivoting");
   window.setTimeout(() => active.classList.remove("is-pivoting"), 280);
@@ -297,13 +456,74 @@ function activateClipping(topic) {
 
   const categoryTopics = cueTopics().filter((cue) => cue.section === topic.section);
   const index = categoryTopics.findIndex((cue) => cue.key === topic.key);
-  document.getElementById("storyCounter").textContent =
-    `${String(Math.max(index + 1, 1)).padStart(2, "0")} / ${String(Math.max(categoryTopics.length, 1)).padStart(2, "0")}`;
-  renderSupportStack(topic.section, topic.index);
-  renderStoryRail(topic.section, topic.key);
+  const counterEl = document.getElementById("storyCounter");
+  if (counterEl) {
+    counterEl.textContent =
+      `${String(Math.max(index + 1, 1)).padStart(2, "0")} / ${String(Math.max(categoryTopics.length, 1)).padStart(2, "0")}`;
+  }
+  renderIntelSidebar(topic.section, topic.index);
   renderSourceStack(topic.section);
 }
 
+// ── Section activation ─────────────────────────────────────────────────────
+function activateSection(key) {
+  lastSectionKey = key;
+  const screen = screenForCue(key);
+  const label = phaseOrder.find(([phase]) => phase === key)?.[1] || categoryLabels[key] || "Briefing";
+  document.getElementById("phaseReadout").textContent = label;
+  document.body.classList.toggle("phase-news", screen === "news");
+  document.querySelectorAll(".app-screen").forEach((node) => {
+    node.classList.toggle("is-screen-active", node.dataset.screen === screen);
+  });
+  document.querySelectorAll(".phase-item").forEach((node) => {
+    node.classList.toggle("is-active", node.dataset.phase === key);
+  });
+
+  // Show/hide right dossier panels
+  const showHeatmap = key === "markets";
+  const showGeoRisk = key === "geopolitics";
+  const sectorHeatmap = document.getElementById("sectorHeatmap");
+  const geoRiskPanel = document.getElementById("geoRiskPanel");
+  const sourceStack = document.getElementById("sourceStack");
+  if (sectorHeatmap) sectorHeatmap.classList.toggle("hidden", !showHeatmap);
+  if (geoRiskPanel) geoRiskPanel.classList.toggle("hidden", !showGeoRisk);
+  // Keep sourceStack visible always (it's the main list)
+
+  if (screen === "news") {
+    renderCategory(key);
+  }
+}
+
+function activateTopic(topic) {
+  lastTopicKey = topic.key;
+  renderCategory(topic.section);
+  activateClipping(topic);
+}
+
+// ── Script + warnings ─────────────────────────────────────────────────────
+function renderScript() {
+  const target = document.getElementById("scriptText");
+  const lines = String(data.script_markdown || "").split("\n");
+  target.innerHTML = lines.map((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("## ")) return `<h3>${escapeHtml(trimmed.slice(3))}</h3>`;
+    if (trimmed.startsWith("# ")) return `<h2>${escapeHtml(trimmed.slice(2))}</h2>`;
+    if (trimmed.startsWith("- [")) {
+      const match = trimmed.match(/^- \[([^\]]+)\]\(([^)]+)\)/);
+      if (match) return `<p>${link(match[1], match[2])}</p>`;
+    }
+    return `<p>${escapeHtml(trimmed)}</p>`;
+  }).join("");
+}
+
+function renderWarnings() {
+  const warnings = data.warnings || [];
+  document.getElementById("warnings").innerHTML =
+    warnings.map((warning) => `<p>${escapeHtml(warning)}</p>`).join("");
+}
+
+// ── Audio ──────────────────────────────────────────────────────────────────
 function setupAudio() {
   if (data.music_src) {
     musicAudio.src = data.music_src;
@@ -317,9 +537,7 @@ function setupAudio() {
     playButton.disabled = true;
     playButton.textContent = "No audio";
     audioStatus.textContent = "No narration MP3 generated";
-    if (presentationMode) {
-      startPresentationClock();
-    }
+    if (presentationMode) startPresentationClock();
     return;
   }
 
@@ -336,13 +554,14 @@ function setupAudio() {
     fadeMusicTo(musicNarrationVolume(), 700);
   });
   briefAudio.addEventListener("pause", () => {
-    if (!briefAudio.ended) {
-      stopAudioSyncLoop();
-    }
+    if (!briefAudio.ended) stopAudioSyncLoop();
   });
-  briefAudio.addEventListener("timeupdate", () => updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
-  briefAudio.addEventListener("seeking", () => updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
-  briefAudio.addEventListener("ratechange", () => updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
+  briefAudio.addEventListener("timeupdate", () =>
+    updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
+  briefAudio.addEventListener("seeking", () =>
+    updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
+  briefAudio.addEventListener("ratechange", () =>
+    updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio)));
   briefAudio.addEventListener("ended", () => {
     stopAudioSyncLoop();
     updateActiveCue(totalTimelineSeconds(), 1);
@@ -371,9 +590,7 @@ function setupAudio() {
 }
 
 async function beginPlayback(reason) {
-  if (playbackStarting || !briefAudio.paused) {
-    return;
-  }
+  if (playbackStarting || !briefAudio.paused) return;
   playbackStarting = true;
   playButton.classList.remove("is-blocked");
   playButton.disabled = true;
@@ -396,32 +613,19 @@ async function beginPlayback(reason) {
 }
 
 function waitForMediaReady(media, label) {
-  if (!media || !media.src) {
-    return Promise.resolve();
-  }
-  if (media.readyState >= 2) {
-    return Promise.resolve();
-  }
+  if (!media || !media.src) return Promise.resolve();
+  if (media.readyState >= 2) return Promise.resolve();
   media.load();
   return new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(() => {
-      cleanup();
-      resolve();
-    }, 7000);
+    const timeout = window.setTimeout(() => { cleanup(); resolve(); }, 7000);
     function cleanup() {
       window.clearTimeout(timeout);
       media.removeEventListener("canplay", onReady);
       media.removeEventListener("loadeddata", onReady);
       media.removeEventListener("error", onError);
     }
-    function onReady() {
-      cleanup();
-      resolve();
-    }
-    function onError() {
-      cleanup();
-      reject(new Error(`${label} media failed to load`));
-    }
+    function onReady() { cleanup(); resolve(); }
+    function onError() { cleanup(); reject(new Error(`${label} media failed to load`)); }
     media.addEventListener("canplay", onReady, {once: true});
     media.addEventListener("loadeddata", onReady, {once: true});
     media.addEventListener("error", onError, {once: true});
@@ -437,9 +641,7 @@ function musicOpenVolume() {
 }
 
 async function startMusic() {
-  if (!musicAudio.src || data.browser_music_enabled === false || data.music_enabled === false) {
-    return;
-  }
+  if (!musicAudio.src || data.browser_music_enabled === false || data.music_enabled === false) return;
   try {
     await waitForMediaReady(musicAudio, "music");
     musicAudio.currentTime = 0;
@@ -453,54 +655,37 @@ async function startMusic() {
 }
 
 function fadeMusicTo(targetVolume, durationMs) {
-  if (!musicAudio || !musicAudio.src) {
-    return;
-  }
-  if (musicFadeFrame) {
-    cancelAnimationFrame(musicFadeFrame);
-  }
+  if (!musicAudio || !musicAudio.src) return;
+  if (musicFadeFrame) cancelAnimationFrame(musicFadeFrame);
   const startVolume = musicAudio.volume;
   const startedAt = performance.now();
   function step(now) {
     const progress = Math.min((now - startedAt) / Math.max(durationMs, 1), 1);
     musicAudio.volume = startVolume + (targetVolume - startVolume) * progress;
-    if (progress < 1) {
-      musicFadeFrame = requestAnimationFrame(step);
-    }
+    if (progress < 1) musicFadeFrame = requestAnimationFrame(step);
   }
   musicFadeFrame = requestAnimationFrame(step);
 }
 
 function startPresentationClock() {
-  if (presentationStartedAt != null) {
-    return;
-  }
+  if (presentationStartedAt != null) return;
   presentationStartedAt = performance.now();
   requestAnimationFrame(tickPresentationClock);
 }
 
 function tickPresentationClock() {
-  if (presentationStartedAt == null) {
-    return;
-  }
+  if (presentationStartedAt == null) return;
   const elapsed = (performance.now() - presentationStartedAt) / 1000;
   if (!briefAudio || briefAudio.paused || briefAudio.currentTime < 0.25) {
     updateActiveCue(elapsed);
   }
-  if (elapsed < totalTimelineSeconds() + 15) {
-    requestAnimationFrame(tickPresentationClock);
-  }
+  if (elapsed < totalTimelineSeconds() + 15) requestAnimationFrame(tickPresentationClock);
 }
 
 function startAudioSyncLoop() {
-  if (audioSyncFrame) {
-    return;
-  }
+  if (audioSyncFrame) return;
   const tick = () => {
-    if (!briefAudio || briefAudio.paused || briefAudio.ended) {
-      audioSyncFrame = null;
-      return;
-    }
+    if (!briefAudio || briefAudio.paused || briefAudio.ended) { audioSyncFrame = null; return; }
     updateActiveCue(audioToTimelineSeconds(briefAudio), audioProgressRatio(briefAudio));
     audioSyncFrame = requestAnimationFrame(tick);
   };
@@ -508,9 +693,7 @@ function startAudioSyncLoop() {
 }
 
 function stopAudioSyncLoop() {
-  if (!audioSyncFrame) {
-    return;
-  }
+  if (!audioSyncFrame) return;
   cancelAnimationFrame(audioSyncFrame);
   audioSyncFrame = null;
 }
@@ -543,52 +726,22 @@ function updatePhaseProgress(seconds) {
     const cue = sections.find((sectionCue) => sectionCue.key === node.dataset.phase);
     const fill = node.querySelector(".phase-fill i");
     const state = node.querySelector(".phase-state");
-    if (!cue || !fill) {
-      return;
-    }
+    if (!cue || !fill) return;
     const duration = Math.max(cue.end - cue.start, 0.01);
     const ratio = seconds <= cue.start ? 0 : seconds >= cue.end ? 1 : (seconds - cue.start) / duration;
     fill.style.width = `${Math.min(Math.max(ratio, 0), 1) * 100}%`;
     node.classList.toggle("is-complete", seconds >= cue.end);
     if (state) {
-      if (seconds >= cue.end) {
-        state.textContent = "Done";
-      } else if (seconds >= cue.start) {
-        state.textContent = `${Math.max(Math.round(ratio * 100), 1)}% live`;
-      } else {
-        state.textContent = "Queued";
-      }
+      if (seconds >= cue.end) state.textContent = "Done";
+      else if (seconds >= cue.start) state.textContent = `${Math.max(Math.round(ratio * 100), 1)}% live`;
+      else state.textContent = "Queued";
     }
   });
 }
 
-function activateSection(key) {
-  lastSectionKey = key;
-  const screen = screenForCue(key);
-  const label = phaseOrder.find(([phase]) => phase === key)?.[1] || categoryLabels[key] || "Briefing";
-  document.getElementById("phaseReadout").textContent = label;
-  document.body.classList.toggle("phase-news", screen === "news");
-  document.querySelectorAll(".app-screen").forEach((node) => {
-    node.classList.toggle("is-screen-active", node.dataset.screen === screen);
-  });
-  document.querySelectorAll(".phase-item").forEach((node) => {
-    node.classList.toggle("is-active", node.dataset.phase === key);
-  });
-  if (screen === "news") {
-    renderCategory(key);
-  }
-}
-
-function activateTopic(topic) {
-  lastTopicKey = topic.key;
-  renderCategory(topic.section);
-  activateClipping(topic);
-}
-
+// ── Countdown / followup ───────────────────────────────────────────────────
 function startClosingCountdown() {
-  if (closingCountdownStarted) {
-    return;
-  }
+  if (closingCountdownStarted) return;
   closingCountdownStarted = true;
   followupComplete = false;
   const value = document.getElementById("countdownValue");
@@ -619,23 +772,16 @@ function setupFollowupForm() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const value = input.value.trim();
-    if (!value) {
-      input.focus();
-      return;
-    }
+    if (!value) { input.focus(); return; }
     input.value = "";
     submitFollowup(value);
   });
 }
 
 function submitFollowup(question) {
-  if (followupComplete) {
-    return;
-  }
+  if (followupComplete) return;
   followupComplete = true;
-  if (countdownTimer) {
-    window.clearInterval(countdownTimer);
-  }
+  if (countdownTimer) window.clearInterval(countdownTimer);
   closingCountdownStarted = true;
   document.getElementById("countdownValue").textContent = "0";
   const message = document.getElementById("countdownMessage");
@@ -664,22 +810,14 @@ function submitFollowup(question) {
 
 function setFollowupDisabled(disabled) {
   const form = document.getElementById("followupForm");
-  if (!form) {
-    return;
-  }
-  form.querySelectorAll("input, button").forEach((node) => {
-    node.disabled = disabled;
-  });
+  if (!form) return;
+  form.querySelectorAll("input, button").forEach((node) => { node.disabled = disabled; });
 }
 
 function completeSession(reason) {
-  if (sessionComplete) {
-    return;
-  }
+  if (sessionComplete) return;
   sessionComplete = true;
-  if (countdownTimer) {
-    window.clearInterval(countdownTimer);
-  }
+  if (countdownTimer) window.clearInterval(countdownTimer);
   setFollowupDisabled(true);
   fadeMusicTo(0, 1200);
   fetch("/api/session/complete", {
@@ -687,11 +825,10 @@ function completeSession(reason) {
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({reason}),
   }).catch(() => {});
-  window.setTimeout(() => {
-    window.close();
-  }, 900);
+  window.setTimeout(() => { window.close(); }, 900);
 }
 
+// ── Init ───────────────────────────────────────────────────────────────────
 document.getElementById("greetingHeadline").textContent = firstSentence(
   data.script_sections && data.script_sections.greeting,
   text(data.narration_plan && data.narration_plan.opening_line, "Good morning.")
@@ -711,6 +848,9 @@ renderScript();
 renderWarnings();
 renderSourceStack("geopolitics");
 renderCategory("geopolitics");
+renderSectorHeatmap();
+renderGeoRiskPanel();
 setupFollowupForm();
 setupAudio();
 updateActiveCue(0);
+runBootSequence();

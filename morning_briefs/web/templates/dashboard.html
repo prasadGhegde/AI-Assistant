@@ -18,7 +18,7 @@
           <strong id="operationName">Operation Daybreak</strong>
         </div>
         <div class="phase-readout">
-          <span>Current pane</span>
+          <span>Active phase</span>
           <strong id="phaseReadout">Initializing</strong>
         </div>
         <div class="audio-command">
@@ -39,25 +39,81 @@
         </aside>
 
         <section class="screen-stack" aria-live="polite">
+
+          <!-- ── GREETING SCREEN ─────────────────────────────────── -->
           <article id="screen-greeting" class="brief-screen screen-greeting app-screen is-screen-active" data-screen="greeting">
-            <h1 id="greetingHeadline">Good morning.</h1>
+            <div class="boot-overlay" id="bootOverlay" aria-hidden="true">
+              <div class="boot-grid"></div>
+              <div class="boot-scanline"></div>
+              <div class="boot-corner tl"></div>
+              <div class="boot-corner tr"></div>
+              <div class="boot-corner bl"></div>
+              <div class="boot-corner br"></div>
+              <div class="boot-status-bar">
+                <span class="boot-status-label">SYS</span>
+                <div class="boot-status-items" id="bootStatusItems"></div>
+              </div>
+              <div class="boot-node-ring" aria-hidden="true">
+                <div class="boot-ring ring-1"></div>
+                <div class="boot-ring ring-2"></div>
+                <div class="boot-ring ring-3"></div>
+                <div class="boot-core"></div>
+              </div>
+            </div>
+            <div class="greeting-content">
+              <div class="greeting-kicker" id="greetingKicker">CLASSIFIED / MORNING OPS</div>
+              <h1 id="greetingHeadline">Good morning.</h1>
+              <div class="greeting-sub" id="greetingSub"></div>
+            </div>
           </article>
 
+          <!-- ── WEATHER SCREEN ──────────────────────────────────── -->
           <article id="screen-weather" class="brief-screen screen-weather app-screen" data-screen="weather">
-            <div class="screen-kicker">Weather window</div>
-            <div class="weather-brief">
-              <h2 id="weatherHeadline"></h2>
-              <p id="weatherAdvice"></p>
+            <div class="weather-topbar">
+              <div class="screen-kicker"><span class="status-dot status-live"></span>Field conditions</div>
+              <span class="weather-location" id="weatherLocation">—</span>
             </div>
+            <div class="weather-main">
+              <div class="weather-primary">
+                <div class="weather-temp-block">
+                  <span class="weather-temp-value" id="weatherTemp">—</span>
+                  <span class="weather-feels" id="weatherFeels"></span>
+                </div>
+                <div class="weather-cond-block">
+                  <span class="weather-icon" id="weatherIcon" aria-hidden="true">◈</span>
+                  <span class="weather-cond-text" id="weatherCond">—</span>
+                </div>
+              </div>
+              <div class="weather-stats">
+                <div class="weather-stat">
+                  <span>Wind</span>
+                  <strong id="weatherWind">—</strong>
+                </div>
+                <div class="weather-stat">
+                  <span>Precip.</span>
+                  <strong id="weatherPrecip">—</strong>
+                </div>
+                <div class="weather-stat">
+                  <span>Cloud</span>
+                  <strong id="weatherCloud">—</strong>
+                </div>
+              </div>
+            </div>
+            <div class="weather-advisory-block">
+              <span class="screen-kicker">Field advisory</span>
+              <p id="weatherAdvice">Stand by for conditions assessment.</p>
+            </div>
+            <div class="weather-carry" id="weatherCarry"></div>
             <div class="weather-ticks" aria-hidden="true">
-              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span>
             </div>
           </article>
 
+          <!-- ── NEWS SCREEN ────────────────────────────────────── -->
           <article id="screen-news" class="brief-screen screen-news app-screen" data-screen="news">
             <div class="news-command">
               <div>
-                <div class="screen-kicker" id="categoryKicker">Intel sequence</div>
+                <div class="screen-kicker" id="categoryKicker"><span class="status-dot status-live"></span>Intel sequence</div>
                 <h2 id="categoryTitle">Morning signal</h2>
               </div>
               <div id="storyCounter" class="story-counter">00 / 00</div>
@@ -65,65 +121,76 @@
 
             <div class="intel-board">
               <section id="activeClipping" class="active-clipping">
+                                <div class="active-clipping-sweep" aria-hidden="true"></div>
                 <div class="clip-meta">
-                  <span id="activeSource">Source pending</span>
-                  <span id="activeTime">Live cue</span>
+                  <span class="clip-source-badge" id="activeSource">Source</span>
+                  <span id="activeTime">Live</span>
                 </div>
-                <h3 id="activeHeadline">Ryan will bring each clipping into focus as the brief begins.</h3>
+                <h3 id="activeHeadline">Awaiting first narrated signal.</h3>
                 <div class="key-points">
                   <article class="key-point key-point-primary">
-                    <span>Point 01</span>
-                    <strong id="activePointOne">Standing by for the first source-backed signal.</strong>
+                    <span>Signal</span>
+                    <strong id="activePointOne">Standing by for first source-backed signal.</strong>
                   </article>
                   <article class="key-point">
-                    <span>Point 02</span>
-                    <strong id="activePointTwo">The implication will lock in as narration reaches the clipping.</strong>
+                    <span>Implication</span>
+                    <strong id="activePointTwo">Impact assessment loads with narration.</strong>
                   </article>
                 </div>
                 <div class="evidence-strip">
                   <span>Source excerpt</span>
-                  <p id="activeExcerpt">The news pane is standing by for the first narrated item.</p>
+                  <p id="activeExcerpt">The intel pane is standing by for the first narrated item.</p>
                 </div>
               </section>
 
-              <aside class="mission-column">
-                <div class="pane-label">Progression</div>
-                <div id="storyRail" class="story-rail"></div>
-                <div class="pane-label">Adjacent clippings</div>
-                <div id="supportStack" class="support-stack"></div>
+              <aside class="intel-sidebar" id="intelSidebar">
+                <!-- populated by JS per section -->
               </aside>
             </div>
           </article>
 
+          <!-- ── WATCHLIST SCREEN ───────────────────────────────── -->
           <article id="screen-watchlist" class="brief-screen screen-watchlist app-screen" data-screen="watchlist">
-            <div class="screen-kicker">Watch list</div>
-            <h2>Operational threads for today</h2>
+            <div class="screen-kicker"><span class="status-dot status-live"></span>Operational watch list</div>
+            <h2>Threads to revisit today</h2>
             <div id="watchList" class="watch-list"></div>
           </article>
 
+          <!-- ── CLOSING SCREEN ─────────────────────────────────── -->
           <article id="screen-closing_question" class="brief-screen screen-closing app-screen" data-screen="closing_question">
-            <div class="screen-kicker">Before I step back</div>
+            <div class="screen-kicker">Debrief complete</div>
             <h2 id="closingQuestion">Any questions on Operation Daybreak, Captain?</h2>
             <form id="followupForm" class="followup-form">
-              <label for="followupInput">Typed follow-up</label>
+              <label for="followupInput">Follow-up query</label>
               <div>
-                <input id="followupInput" type="text" autocomplete="off" placeholder="Type one concise follow-up">
+                <input id="followupInput" type="text" autocomplete="off" placeholder="One concise follow-up question">
                 <button type="submit">Ask</button>
               </div>
             </form>
             <div class="countdown">
               <span id="countdownValue">10</span>
-              <p id="countdownMessage">Type a quick follow-up before the console closes.</p>
+              <p id="countdownMessage">Type one follow-up before the console closes.</p>
             </div>
           </article>
         </section>
 
+        <!-- ── RIGHT DOSSIER PANEL ──────────────────────────────── -->
         <aside class="source-dossier">
           <div class="dossier-head">
-            <span>Source stack</span>
-            <strong id="sourceCount">0 items</strong>
+            <span>Intel dossier</span>
+            <strong id="sourceCount">0 sources</strong>
           </div>
           <div id="sourceStack" class="source-stack"></div>
+          <!-- Sector heatmap — visible when markets section is active -->
+          <div id="sectorHeatmap" class="sector-heatmap hidden">
+            <div class="pane-label">Sector performance</div>
+            <div id="sectorGrid" class="sector-grid"></div>
+          </div>
+          <!-- Geo risk panel -->
+          <div id="geoRiskPanel" class="geo-risk-panel hidden">
+            <div class="pane-label">Signal metrics</div>
+            <div id="geoRiskGrid" class="geo-risk-grid"></div>
+          </div>
           <div class="mission-clock">
             <span>Generated</span>
             <strong>__GENERATED_AT__</strong>
